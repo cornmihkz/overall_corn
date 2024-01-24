@@ -1,0 +1,51 @@
+---
+title: "linear_regression_pests_and_diseases"
+author: "Mihkail Cornell"
+date: "2023-12-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidymodels)
+library(parsnip)
+
+linear_reg_spec <-
+  linear_reg() %>%
+  set_engine("lm") %>%
+  set_mode("regression")
+```
+
+
+```{r setup, include=FALSE}
+blsb_split <- initial_split(blsb_joined_ev)
+
+blsb_train <- training(blsb_split)
+blsb_test <- testing(blsb_split)
+
+
+blsb_recipe <-
+  recipe(incidence_blsb ~ mean_temp + mean_humid, data = blsb_train) %>%
+  # step_zv(all_numeric()) %>%
+  # step_normalize(all_numeric()) %>%
+  step_log(all_outcomes(), base = 4) %>%
+  prep()
+
+
+blsb_bake <- bake(blsb_recipe, new_data = blsb_test)
+
+
+lm_blsb_fit <-
+  linear_reg_spec  %>%
+  fit(incidence_blsb ~ mean_temp + mean_humid, data = juice(blsb_recipe))
+
+
+lm_blsb_fit %>%
+  tidy()
+
+
+
+lm_blsb_fit %>%
+  glance()
+```
+

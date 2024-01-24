@@ -1,0 +1,368 @@
+---
+title: "Parametric_comparisons_by_diseases"
+author: "Mihkail Cornell"
+date: "2023-12-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("dplyr")
+library("datawizard")
+library("nortest")
+library("rcompanion")
+library("moments")
+```
+
+
+```BLSB```
+```{r}
+# blsb data for tests
+blsb_mean_comparisons <-
+  diseases_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_blsb = mean(percent_incidence_blsb))
+
+# blsb Shapiro-Wilk Normality Test
+blsb_normality_shapiro <- 
+  shapiro.test(blsb_mean_comparisons$mean_incidence_blsb)
+
+# blsb province Levene's test for homogeneity of variance
+blsb_levenes_province <- 
+  leveneTest(mean_incidence_blsb ~ Province, blsb_mean_comparisons)
+
+# blsb Kruskal-Wallis Test non-homogeneous province means
+blsb_kruskal_province <-
+  kruskal.test(mean_incidence_blsb ~ Province, blsb_mean_comparisons)
+
+# blsb Kruskal-Wallis is significant
+# perform dunn's Test
+blsb_dunnTest_province <-
+  dunnTest(mean_incidence_blsb ~ Province,
+              data=blsb_mean_comparisons,
+              method="bh")
+
+# blsb province CLD list
+blsb_cldList_province <- 
+  cldList(P.adj ~ Comparison,
+        data = blsb_dunnTest_province$res)
+
+# blsb test of homogeneity by fertilizer rate
+blsb_levenes_fertilizer <- 
+  leveneTest(mean_incidence_blsb ~ Treatment, blsb_mean_comparisons)
+
+blsb_fertilizer_means_aov <- 
+  aov(mean_incidence_blsb ~ Treatment, blsb_mean_comparisons)
+summary(blsb_fertilizer_means_aov)
+
+
+
+# t-test blsb
+blsb_means_ttest <- t.test(mean_incidence_blsb ~ `Corn Type`, blsb_mean_comparisons)
+
+
+```
+
+```Leaf BLIGHT```
+```{r}
+# blight data for tests
+blight_mean_comparisons <-
+  diseases_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_blight = mean(percent_incidence_blight))
+
+# blight Shapiro-Wilk Normality Test
+blight_normality_shapiro <- 
+  shapiro.test(blight_mean_comparisons$mean_incidence_blight)
+
+# blight province Levene's test for homogeneity of variance
+blight_levenes_province <- 
+  leveneTest(mean_incidence_blight ~ Province, blight_mean_comparisons)
+
+
+# blight Kruskal-Wallis Test non-homogeneous province means
+blight_kruskal_province <-
+  kruskal.test(mean_incidence_blight ~ Province, blight_mean_comparisons)
+
+# blight Kruskal-Wallis is significant
+# perform dunn's Test
+blight_dunnTest_province <-
+  dunnTest(mean_incidence_blight ~ Province,
+              data=blight_mean_comparisons,
+              method="bh")
+
+# blight province CLD list
+blight_cldList_province <- 
+  cldList(P.adj ~ Comparison,
+        data = blight_dunnTest_province$res)
+
+# Anova blight by fertilizer treatment rate
+blight_levenes_fertilizer <- 
+  leveneTest(mean_incidence_blight ~ Treatment, blight_mean_comparisons)
+
+blight_fertilizer_means_aov <- 
+  aov(mean_incidence_blight ~ Treatment, blight_mean_comparisons)
+summary(blight_fertilizer_means_aov)
+
+# t-test blight
+# blight non - normal data perform Mann-Whitney U Test 
+blight_means_utest <- wilcox.test(mean_incidence_blight ~ `Corn Type`, blight_mean_comparisons)
+
+```
+
+```Brown spot```
+```{r}
+# brown data for tests
+brown_mean_comparisons <-
+  diseases_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_brown = mean(percent_incidence_brown))
+
+# brown Shapiro-Wilk Normality Test
+brown_normality_shapiro <- 
+  shapiro.test(brown_mean_comparisons$mean_incidence_brown)
+
+# brown province Levene's test for homogeneity of variance
+brown_levenes_province <- 
+  leveneTest(mean_incidence_brown ~ Province, brown_mean_comparisons)
+
+# brown Kruskal-Wallis Test non-homogeneous province means
+brown_kruskal_province <-
+  kruskal.test(mean_incidence_brown ~ Province, brown_mean_comparisons)
+
+# brown Kruskal-Wallis is significant
+# perform dunn's Test
+brown_dunnTest_province <-
+  dunnTest(mean_incidence_brown ~ Province,
+              data=brown_mean_comparisons,
+              method="bh")
+
+# brown province CLD list
+brown_cldList_province <- 
+  cldList(P.adj ~ Comparison,
+        data = brown_dunnTest_province$res)
+
+# Levene's test brown by fertilizer treatment rate
+brown_levenes_fertilizer <- 
+  leveneTest(mean_incidence_brown ~ Treatment, brown_mean_comparisons)
+
+# Anova brown by fertilizer treatment rate
+brown_fertilizer_means_aov <- 
+  aov(mean_incidence_brown ~ Treatment, brown_mean_comparisons)
+summary(brown_fertilizer_means_aov)
+
+# t-test brown
+brown_means_ttest <- t.test(mean_incidence_brown ~ `Corn Type`, brown_mean_comparisons)
+```
+
+```LEAF Spot```
+```{r}
+# leaf data for tests
+leaf_mean_comparisons <-
+  diseases_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_leaf = mean(percent_incidence_leaf))
+
+# leaf Shapiro-Wilk Normality Test
+leaf_normality_shapiro <- 
+  shapiro.test(leaf_mean_comparisons$mean_incidence_leaf)
+
+# leaf province Levene's test for homogeneity of variance
+leaf_levenes_province <- 
+  leveneTest(mean_incidence_leaf ~ Province, leaf_mean_comparisons)
+
+# Anova leaf by province
+leaf_province_means_aov <- 
+  aov(mean_incidence_leaf ~ Province, leaf_mean_comparisons)
+summary(leaf_province_means_aov)
+
+# leaf province significant at 5%
+# TukeyHSD test and letters
+leaf_province_means_aov_Tukey <- TukeyHSD(leaf_province_means_aov)
+leaf_province_means_aov_Letters <- multcompLetters4(leaf_province_means_aov,
+                                                          leaf_province_means_aov_Tukey)
+
+# Levene's leaf by fertilizer treatment rate
+leaf_levenes_fertilizer <- 
+  leveneTest(mean_incidence_leaf ~ Treatment, leaf_mean_comparisons)
+
+# Anova leaf by fertilizer treatment rate
+leaf_fertilizer_means_aov <- 
+  aov(mean_incidence_leaf ~ Treatment, leaf_mean_comparisons)
+summary(leaf_fertilizer_means_aov)
+
+
+# leaf non - normal data perform Mann-Whitney U Test 
+leaf_means_utest <- wilcox.test(mean_incidence_leaf ~ `Corn Type`, leaf_mean_comparisons)
+
+
+```
+
+
+```Downy MILDEW```
+```{r}
+# mildew data for tests
+mildew_mean_comparisons <-
+  diseases_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_mildew = mean(percent_incidence_mildew))
+
+# mildew Shapiro-Wilk Normality Test
+mildew_normality_shapiro <- 
+  shapiro.test(mildew_mean_comparisons$mean_incidence_mildew)
+
+# mildew province Levene's test for homogeneity of variance
+mildew_levenes_province <- 
+  leveneTest(mean_incidence_mildew ~ Province, mildew_mean_comparisons)
+
+# Anova mildew by province
+mildew_province_means_aov <- 
+  aov(mean_incidence_mildew ~ Province, mildew_mean_comparisons)
+summary(mildew_province_means_aov)
+
+# mildew province significant at 5%
+# TukeyHSD test and letters
+mildew_province_means_aov_Tukey <- TukeyHSD(mildew_province_means_aov)
+mildew_province_means_aov_Letters <- multcompLetters4(mildew_province_means_aov,
+                                                          mildew_province_means_aov_Tukey)
+
+# Anova mildew by fertilizer treatment rate
+mildew_levenes_fertilizer <- 
+  leveneTest(mean_incidence_mildew ~ Treatment, mildew_mean_comparisons)
+
+mildew_fertilizer_means_aov <- 
+  aov(mean_incidence_mildew ~ Treatment, mildew_mean_comparisons)
+summary(mildew_fertilizer_means_aov)
+
+
+# mildew corn type T Test
+mildew_means_ttest <- t.test(mean_incidence_mildew ~ `Corn Type`, mildew_mean_comparisons)
+```
+
+
+```Southern Rust```
+```{r}
+# southrust data for tests
+southrust_mean_comparisons <-
+  diseases_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_southrust = mean(percent_incidence_southrust))
+
+# southrust Shapiro-Wilk Normality Test
+southrust_normality_shapiro <- 
+  shapiro.test(southrust_mean_comparisons$mean_incidence_southrust)
+
+# southrust province Levene's test for homogeneity of variance
+southrust_levenes_province <- 
+  leveneTest(mean_incidence_southrust ~ Province, southrust_mean_comparisons)
+
+# Anova southrust by province
+southrust_province_means_aov <- 
+  aov(mean_incidence_southrust ~ Province, southrust_mean_comparisons)
+summary(southrust_province_means_aov)
+
+# southrust province significant at 5%
+# TukeyHSD test and letters
+southrust_province_means_aov_Tukey <- TukeyHSD(southrust_province_means_aov)
+southrust_province_means_aov_Letters <- multcompLetters4(southrust_province_means_aov,
+                                                          southrust_province_means_aov_Tukey)
+
+# Anova southrust by fertilizer treatment rate
+southrust_levenes_fertilizer <- 
+  leveneTest(mean_incidence_southrust ~ Treatment, southrust_mean_comparisons)
+
+southrust_fertilizer_means_aov <- 
+  aov(mean_incidence_southrust ~ Treatment, southrust_mean_comparisons)
+summary(southrust_fertilizer_means_aov)
+
+# southrust t-test corn type
+southrust_means_ttest <- t.test(mean_incidence_southrust ~ `Corn Type`, southrust_mean_comparisons)
+
+
+```
+
+```Common corn RUST```
+```{r}
+# rust data for tests
+rust_mean_comparisons <-
+  diseases_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_rust = mean(percent_incidence_rust))
+
+# rust Shapiro-Wilk Normality Test
+rust_normality_shapiro <- 
+  shapiro.test(rust_mean_comparisons$mean_incidence_rust)
+
+# rust province Levene's test for homogeneity of variance
+rust_levenes_province <- 
+  leveneTest(mean_incidence_rust ~ Province, rust_mean_comparisons)
+
+# Anova rust by province
+rust_province_means_aov <- 
+  aov(mean_incidence_rust ~ Province, rust_mean_comparisons)
+summary(rust_province_means_aov)
+
+# rust province significant at 5%
+# TukeyHSD test and letters
+rust_province_means_aov_Tukey <- TukeyHSD(rust_province_means_aov)
+rust_province_means_aov_Letters <- multcompLetters4(rust_province_means_aov,
+                                                          rust_province_means_aov_Tukey)
+
+
+# Anova rust by fertilizer treatment rate
+rust_levenes_fertilizer <- 
+  leveneTest(mean_incidence_rust ~ Treatment, rust_mean_comparisons)
+
+rust_fertilizer_means_aov <- 
+  aov(mean_incidence_rust ~ Treatment, rust_mean_comparisons)
+summary(rust_fertilizer_means_aov)
+
+
+# rust t_test for Corn Types differences
+rust_means_ttest <- t.test(mean_incidence_rust ~ `Corn Type`, rust_mean_comparisons)
+
+
+```
+
+
+```Stalk Rot```
+```{r}
+# stalk data for tests
+stalk_mean_comparisons <-
+  diseases_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_stalk = mean(percent_incidence_stalk))
+
+# stalk Shapiro-Wilk Normality Test
+stalk_normality_shapiro <- 
+  shapiro.test(stalk_mean_comparisons$mean_incidence_stalk)
+
+# stalk province Levene's test for homogeneity of variance
+stalk_levenes_province <- 
+  leveneTest(mean_incidence_stalk ~ Province, stalk_mean_comparisons)
+
+# Anova stalk by province
+stalk_province_means_aov <- 
+  aov(mean_incidence_stalk ~ Province, stalk_mean_comparisons)
+summary(stalk_province_means_aov)
+
+# stalk province significant at 5%
+# TukeyHSD test and letters
+stalk_province_means_aov_Tukey <- TukeyHSD(stalk_province_means_aov)
+stalk_province_means_aov_Letters <- multcompLetters4(stalk_province_means_aov,
+                                                          stalk_province_means_aov_Tukey)
+
+# Anova stalk by fertilizer treatment rate
+stalk_levenes_fertilizer <- 
+  leveneTest(mean_incidence_stalk ~ Treatment, stalk_mean_comparisons)
+
+stalk_fertilizer_means_aov <- 
+  aov(mean_incidence_stalk ~ Treatment, stalk_mean_comparisons)
+summary(stalk_fertilizer_means_aov)
+
+
+# stalk t_test for Corn Types differences
+stalk_means_ttest <- t.test(mean_incidence_stalk ~ `Corn Type`, stalk_mean_comparisons)
+
+
+```

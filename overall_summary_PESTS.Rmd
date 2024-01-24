@@ -1,0 +1,2384 @@
+---
+title: "overall_summary"
+author: "Mihkail Cornell"
+date: "2023-12-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("tidymodels")
+library("ggplot2")
+library("ggpubr")
+library("tidymodels")
+library("tidyverse")
+library("ggpubr")
+library("broom")
+library("multcompView")
+library("car")
+library("rstatix")
+library("FSA")
+library("rcompanion")
+library("dunn.test")
+library("fuzzyjoin")
+library("stringdist")
+library("stringr")
+library("dplyr")
+library("lubridate")
+library("magrittr")
+```
+
+
+```{r setup, include=FALSE}
+crop_growth_stages <- c("emergence", "single_leaf", "seedling", "early_whorl", "mid_whorl", 
+                       "late_whorl", "tasseling", "silking", "maturity")
+stage_lvls <- c("Single leaf", "Seedling", "Early Whorl", "Mid whorl",
+                        "Late whorl", "Tasseling", "Silking", "Maturity")
+
+
+
+number_sampled_plants <- 20
+
+monthly_pests <- read_csv("insect_pests_monthly_percent_incidence_averages_with_temp.csv")
+
+insects_raw <- read_csv("../analysis_insect_pests/pests_overall.csv")
+
+insects_summary <- read_csv("../Insect PESTS Summary Corn.csv")
+
+insects_summary_overall <- read_csv("insects_summary_overall.csv")
+
+
+insect_raw_parsed <-
+  insects_raw %>%
+  mutate(collection_date = mdy(`Collection Date`)) %>%
+  mutate(Month = month(mdy(`Collection Date`), label = TRUE, abbr = FALSE))
+
+insect_raw_parsed <-
+  insect_raw_parsed %>%
+  mutate(Year = year(collection_date), Month = month(collection_date)) %>%
+  left_join(monthly_averages, by = c("Year", "Month"))
+```
+
+```{r}
+#### Corn borer #####
+
+borer <-
+  insect_raw_parsed %>% 
+  select(FarmID, Region,`Collection Date`, Province, Municipality, `Crop Stage`, Treatment, Barangay, 
+         `Corn Type`, Variety, mean_temp, mean_humid, mean_rain, mean_wind, Month, starts_with("Corn Borer - Damage Rating ")) %>%
+  filter(Municipality != "Santa Rita" & Municipality != "Hilongos" & 
+           Municipality != "Tomas Oppus") 
+
+borer$collect_date <-
+  as.Date(borer$`Collection Date`, "%B %d, %Y") 
+
+borer <-
+  borer %>% 
+  mutate(Year = year(collect_date), Month = month(collect_date)) %>% 
+  left_join(monthly_averages, by=c('Year', 'Month')) %>%
+  rowwise() %>%
+    mutate(sum_no = sum(c_across(starts_with("Corn Borer - Damage Rating ")) == "1"),
+           sum_light = sum(c_across(starts_with("Corn Borer - Damage Rating ")) == "3"),
+           sum_moderate = sum(c_across(starts_with("Corn Borer - Damage Rating ")) == "5"),
+           sum_severe = sum(c_across(starts_with("Corn Borer - Damage Rating ")) == "7"),
+           sum_high = sum(c_across(starts_with("Corn Borer - Damage Rating ")) == "9"),
+           average_damage_borer = ((1 * sum_no) + (3 * sum_light) + (5 * sum_moderate) + (7 * sum_severe) + (9 * sum_high)) / (number_sampled_plants),
+           damage_rating_borer = (((1 * sum_no) + (3 * sum_light) + (5 * sum_moderate) + (7 * sum_severe) + (9 * sum_high)) / (number_sampled_plants * 9)) * percent_100,
+           incidence_borer = ((sum(c_across(sum_light:sum_high))) * percent_100) / number_sampled_plants,
+           )
+
+summary_borer <-
+  borer %>%
+  mutate(Year = year(ymd(collect_date))) %>%
+  group_by(Region, Province, Year, Month, Municipality, `Corn Type`, Treatment, mean_temp.x, mean_humid.x, mean_rain.x, mean_wind.x, Barangay, `Crop Stage`) %>%
+  remove_missing(na.rm=TRUE) %>%
+  summarise(total_count_samples_borer = n() * number_sampled_plants,
+            sum_avg_dmg_borer = sum(average_damage_borer),
+            sum_dmg_rate_borer = sum(damage_rating_borer),
+            sum_incidence_borer = sum(incidence_borer),
+            percent_incidence_borer = (sum_incidence_borer / total_count_samples_borer) * percent_100)
+
+##### Semi-looper ####
+semilooper <-
+  insect_raw_parsed %>% 
+  select(FarmID, Region,`Collection Date`, Province, Municipality, `Crop Stage`, Treatment, Barangay, 
+         `Corn Type`, Variety, mean_temp, mean_humid, mean_rain, mean_wind, Month, starts_with("Semi-looper - Damage Rating ")) %>%
+  filter(Municipality != "Santa Rita" & Municipality != "Hilongos" & 
+           Municipality != "Tomas Oppus") 
+
+semilooper$collect_date <-
+  as.Date(semilooper$`Collection Date`, "%B %d, %Y") 
+
+semilooper <-
+  semilooper %>% 
+  mutate(Year = year(collect_date), Month = month(collect_date)) %>% 
+  left_join(monthly_averages, by=c('Year', 'Month')) %>%
+  rowwise() %>%
+    mutate(sum_no = sum(c_across(starts_with("Semi-looper - Damage Rating ")) == "1"),
+           sum_light = sum(c_across(starts_with("Semi-looper - Damage Rating ")) == "3"),
+           sum_moderate = sum(c_across(starts_with("Semi-looper - Damage Rating ")) == "5"),
+           sum_severe = sum(c_across(starts_with("Semi-looper - Damage Rating ")) == "7"),
+           sum_high = sum(c_across(starts_with("Semi-looper - Damage Rating ")) == "9"),
+           average_damage_semilooper = ((1 * sum_no) + (3 * sum_light) + (5 * sum_moderate) + (7 * sum_severe) + (9 * sum_high)) / (number_sampled_plants),
+           damage_rating_semilooper = (((1 * sum_no) + (3 * sum_light) + (5 * sum_moderate) + (7 * sum_severe) + (9 * sum_high)) / (number_sampled_plants * 9)) * percent_100,
+           incidence_semilooper = ((sum(c_across(sum_light:sum_high))) * percent_100) / number_sampled_plants,
+           )
+
+
+summary_semilooper <-
+  semilooper %>%
+  mutate(Year = year(ymd(collect_date))) %>%   
+  group_by(Region, Province, Year, Month, Municipality, `Corn Type`, Treatment, mean_temp.x, mean_humid.x, mean_rain.x, mean_wind.x, Barangay, `Crop Stage`) %>%
+  remove_missing(na.rm=TRUE) %>%
+  summarise(total_count_samples_semilooper = n() * number_sampled_plants,
+            sum_avg_dmg_semilooper = sum(average_damage_semilooper),
+            sum_dmg_rate_semilooper = sum(damage_rating_semilooper),
+            sum_incidence_semilooper = sum(incidence_semilooper),
+            percent_incidence_semilooper = (sum_incidence_semilooper / total_count_samples_semilooper) * percent_100)
+
+#####
+
+##### Corn earworm  ####
+earworm <-
+  insect_raw_parsed %>% 
+  select(FarmID, Region,`Collection Date`, Province, Municipality, `Crop Stage`, Treatment, Barangay, 
+         `Corn Type`, Variety, mean_temp, mean_humid, mean_rain, mean_wind, Month, starts_with("Corn Earworm - Damage Rating ")) %>%
+  filter(Municipality != "Santa Rita" & Municipality != "Hilongos" & 
+           Municipality != "Tomas Oppus") 
+
+earworm$collect_date <-
+  as.Date(earworm$`Collection Date`, "%B %d, %Y") 
+
+earworm <-
+  earworm %>% 
+  mutate(Year = year(collect_date), Month = month(collect_date)) %>% 
+  left_join(monthly_averages, by=c('Year', 'Month')) %>%
+  rowwise() %>%
+    mutate(sum_no = sum(c_across(starts_with("Corn Earworm - Damage Rating ")) == "1"),
+           sum_light = sum(c_across(starts_with("Corn Earworm - Damage Rating ")) == "3"),
+           sum_moderate = sum(c_across(starts_with("Corn Earworm - Damage Rating ")) == "5"),
+           sum_severe = sum(c_across(starts_with("Corn Earworm - Damage Rating ")) == "7"),
+           sum_high = sum(c_across(starts_with("Corn Earworm - Damage Rating ")) == "9"),
+           average_damage_earworm = ((1 * sum_no) + (3 * sum_light) + (5 * sum_moderate) + (7 * sum_severe) + (9 * sum_high)) / (number_sampled_plants),
+           damage_rating_earworm = (((1 * sum_no) + (3 * sum_light) + (5 * sum_moderate) + (7 * sum_severe) + (9 * sum_high)) / (number_sampled_plants * 9)) * percent_100,
+           incidence_earworm = ((sum(c_across(sum_light:sum_high))) * percent_100) / number_sampled_plants,
+           )
+
+
+summary_earworm <-
+  earworm %>%
+  mutate(Year = year(ymd(collect_date))) %>%   
+  group_by(Region, Province, Year, Month, Municipality, `Corn Type`, Treatment, mean_temp.x, mean_humid.x, mean_rain.x, mean_wind.x, Barangay, `Crop Stage`) %>%
+  remove_missing(na.rm=TRUE) %>%
+  summarise(total_count_samples_earworm = n() * number_sampled_plants,
+            sum_avg_dmg_earworm = sum(average_damage_earworm),
+            sum_dmg_rate_earworm = sum(damage_rating_earworm),
+            sum_incidence_earworm = sum(incidence_earworm),
+            percent_incidence_earworm = (sum_incidence_earworm / total_count_samples_earworm) * percent_100)
+#####
+
+#### cutworm ####
+cutworm <-
+  insect_raw_parsed %>% 
+  select(FarmID, Region,`Collection Date`, Province, Municipality, `Crop Stage`, Treatment, Barangay, 
+         `Corn Type`, Variety, mean_temp, mean_humid, mean_rain, mean_wind, Month, starts_with("Cutworm - Damage Rating ")) %>%
+  filter(Municipality != "Santa Rita" & Municipality != "Hilongos" & 
+           Municipality != "Tomas Oppus") 
+
+cutworm$collect_date <-
+  as.Date(cutworm$`Collection Date`, "%B %d, %Y") 
+
+cutworm <-
+  cutworm %>% 
+  mutate(Year = year(collect_date), Month = month(collect_date)) %>% 
+  left_join(monthly_averages, by=c('Year', 'Month')) %>%
+  rowwise() %>%
+    mutate(sum_no = sum(c_across(starts_with("Cutworm - Damage Rating ")) == "1"),
+           sum_light = sum(c_across(starts_with("Cutworm - Damage Rating ")) == "3"),
+           sum_moderate = sum(c_across(starts_with("Cutworm - Damage Rating ")) == "5"),
+           sum_severe = sum(c_across(starts_with("Cutworm - Damage Rating ")) == "7"),
+           sum_high = sum(c_across(starts_with("Cutworm - Damage Rating ")) == "9"),
+           average_damage_cutworm = ((1 * sum_no) + (3 * sum_light) + (5 * sum_moderate) + (7 * sum_severe) + (9 * sum_high)) / (number_sampled_plants),
+           damage_rating_cutworm = (((1 * sum_no) + (3 * sum_light) + (5 * sum_moderate) + (7 * sum_severe) + (9 * sum_high)) / (number_sampled_plants * 9)) * percent_100,
+           incidence_cutworm = ((sum(c_across(sum_light:sum_high))) * percent_100) / number_sampled_plants,
+           )
+
+
+summary_cutworm <-
+  cutworm %>%
+  mutate(Year = year(ymd(collect_date))) %>%   
+  group_by(Region, Province, Year, Month, Municipality, `Corn Type`, Treatment, mean_temp.x, mean_humid.x, mean_rain.x, mean_wind.x, Barangay, `Crop Stage`) %>%
+  remove_missing(na.rm=TRUE) %>%
+  summarise(total_count_samples_cutworm = n() * number_sampled_plants,
+            sum_avg_dmg_cutworm = sum(average_damage_cutworm),
+            sum_dmg_rate_cutworm = sum(damage_rating_cutworm),
+            sum_incidence_cutworm = sum(incidence_cutworm),
+            percent_incidence_cutworm = (sum_incidence_cutworm / total_count_samples_cutworm) * percent_100)
+
+######
+
+#### Armyworm ####
+armyworm <-
+  insect_raw_parsed %>% 
+  select(FarmID, Region,`Collection Date`, Province, Municipality, `Crop Stage`, Treatment, Barangay, 
+         `Corn Type`, Variety, mean_temp, mean_humid, mean_rain, mean_wind, Month, starts_with("Armyworm - Damage Rating ")) %>%
+  filter(Municipality != "Santa Rita" & Municipality != "Hilongos" & 
+           Municipality != "Tomas Oppus") 
+
+armyworm$collect_date <-
+  as.Date(armyworm$`Collection Date`, "%B %d, %Y") 
+
+armyworm <-
+  armyworm %>% 
+  mutate(Year = year(collect_date), Month = month(collect_date)) %>% 
+  left_join(monthly_averages, by=c('Year', 'Month')) %>%
+  rowwise() %>%
+    mutate(sum_no = sum(c_across(starts_with("Armyworm - Damage Rating ")) == "1"),
+           sum_light = sum(c_across(starts_with("Armyworm - Damage Rating ")) == "3"),
+           sum_moderate = sum(c_across(starts_with("Armyworm - Damage Rating ")) == "5"),
+           sum_severe = sum(c_across(starts_with("Armyworm - Damage Rating ")) == "7"),
+           sum_high = sum(c_across(starts_with("Armyworm - Damage Rating ")) == "9"),
+           average_damage_armyworm = ((1 * sum_no) + (3 * sum_light) + (5 * sum_moderate) + (7 * sum_severe) + (9 * sum_high)) / (number_sampled_plants),
+           damage_rating_armyworm = (((1 * sum_no) + (3 * sum_light) + (5 * sum_moderate) + (7 * sum_severe) + (9 * sum_high)) / (number_sampled_plants * 9)) * percent_100,
+           incidence_armyworm = ((sum(c_across(sum_light:sum_high))) * percent_100) / number_sampled_plants,
+           )
+
+
+summary_armyworm <-
+  armyworm %>%
+  mutate(Year = year(ymd(collect_date))) %>%   
+  group_by(Region, Province, Year, Month, Municipality, `Corn Type`, Treatment, mean_temp.x, mean_humid.x, mean_rain.x, mean_wind.x, Barangay, `Crop Stage`) %>%
+  remove_missing(na.rm=TRUE) %>%
+  summarise(total_count_samples_armyworm = n() * number_sampled_plants,
+            sum_avg_dmg_armyworm = sum(average_damage_armyworm),
+            sum_dmg_rate_armyworm = sum(damage_rating_armyworm),
+            sum_incidence_armyworm = sum(incidence_armyworm),
+            percent_incidence_armyworm = (sum_incidence_armyworm / total_count_samples_armyworm) * percent_100)
+
+#####
+
+##### Corn Plant Hopper ####
+hopper <-
+  insect_raw_parsed %>% 
+  select(FarmID, Region,`Collection Date`, Province, Municipality, `Crop Stage`, Treatment, Barangay, 
+         `Corn Type`, Variety, mean_temp, mean_humid, mean_rain, mean_wind, Month, starts_with("Corn Plant Hopper - Damage Rating ")) %>%
+  filter(Municipality != "Santa Rita" & Municipality != "Hilongos" & 
+           Municipality != "Tomas Oppus") 
+
+hopper$collect_date <-
+  as.Date(hopper$`Collection Date`, "%B %d, %Y") 
+
+hopper <-
+  hopper %>% 
+  mutate(Year = year(collect_date), Month = month(collect_date)) %>% 
+  left_join(monthly_averages, by=c('Year', 'Month')) %>%
+  rowwise() %>%
+    mutate(sum_no = sum(c_across(starts_with("Corn Plant Hopper - Damage Rating ")) == "1"),
+           sum_light = sum(c_across(starts_with("Corn Plant Hopper - Damage Rating ")) == "3"),
+           sum_moderate = sum(c_across(starts_with("Corn Plant Hopper - Damage Rating ")) == "5"),
+           sum_severe = sum(c_across(starts_with("Corn Plant Hopper - Damage Rating ")) == "7"),
+           sum_high = sum(c_across(starts_with("Corn Plant Hopper - Damage Rating ")) == "9"),
+           average_damage_hopper = ((1 * sum_no) + (3 * sum_light) + (5 * sum_moderate) + (7 * sum_severe) + (9 * sum_high)) / (number_sampled_plants),
+           damage_rating_hopper = (((1 * sum_no) + (3 * sum_light) + (5 * sum_moderate) + (7 * sum_severe) + (9 * sum_high)) / (number_sampled_plants * 9)) * percent_100,
+           incidence_hopper = ((sum(c_across(sum_light:sum_high))) * percent_100) / number_sampled_plants,
+           )
+
+
+summary_hopper <-
+  hopper %>%
+  mutate(Year = year(ymd(collect_date))) %>%   
+  group_by(Region, Province, Year, Month, Municipality, `Corn Type`, Treatment, mean_temp.x, mean_humid.x, mean_rain.x, mean_wind.x, Barangay, `Crop Stage`) %>%
+  remove_missing(na.rm=TRUE) %>%
+  summarise(total_count_samples_hopper = n() * number_sampled_plants,
+            sum_avg_dmg_hopper = sum(average_damage_hopper),
+            sum_dmg_rate_hopper = sum(damage_rating_hopper),
+            sum_incidence_hopper = sum(incidence_hopper),
+            percent_incidence_hopper = (sum_incidence_hopper / total_count_samples_hopper) * percent_100)
+
+#####
+
+#### Aphids ####
+aphids <-
+  insect_raw_parsed %>% 
+  select(FarmID, Region,`Collection Date`, Province, Municipality, `Crop Stage`, Treatment, Barangay, 
+         `Corn Type`, Variety, mean_temp, mean_humid, mean_rain, mean_wind, Month, starts_with("Aphids - Damage Rating ")) %>%
+  filter(Municipality != "Santa Rita" & Municipality != "Hilongos" & 
+           Municipality != "Tomas Oppus") 
+
+aphids$collect_date <-
+  as.Date(aphids$`Collection Date`, "%B %d, %Y") 
+
+aphids <-
+  aphids %>% 
+  mutate(Year = year(collect_date), Month = month(collect_date)) %>% 
+  left_join(monthly_averages, by=c('Year', 'Month')) %>%
+  rowwise() %>%
+    mutate(sum_no = sum(c_across(starts_with("Aphids - Damage Rating ")) == "1"),
+           sum_light = sum(c_across(starts_with("Aphids - Damage Rating ")) == "3"),
+           sum_moderate = sum(c_across(starts_with("Aphids - Damage Rating ")) == "5"),
+           sum_severe = sum(c_across(starts_with("Aphids - Damage Rating ")) == "7"),
+           sum_high = sum(c_across(starts_with("Aphids - Damage Rating ")) == "9"),
+           average_damage_aphids = ((1 * sum_no) + (3 * sum_light) + (5 * sum_moderate) + (7 * sum_severe) + (9 * sum_high)) / (number_sampled_plants),
+           damage_rating_aphids = (((1 * sum_no) + (3 * sum_light) + (5 * sum_moderate) + (7 * sum_severe) + (9 * sum_high)) / (number_sampled_plants * 9)) * percent_100,
+           incidence_aphids = ((sum(c_across(sum_light:sum_high))) * percent_100) / number_sampled_plants,
+           )
+
+summary_aphids <-
+  aphids %>%
+  mutate(Year = year(ymd(collect_date))) %>%   
+  group_by(Region, Province, Year, Month, Municipality, `Corn Type`, Treatment, mean_temp.x, mean_humid.x, mean_rain.x, mean_wind.x, Barangay, `Crop Stage`) %>%
+  remove_missing(na.rm=TRUE) %>%
+  summarise(total_count_samples_aphids = n() * number_sampled_plants,
+            sum_avg_dmg_aphids = sum(average_damage_aphids),
+            sum_dmg_rate_aphids = sum(damage_rating_aphids),
+            sum_incidence_aphids = sum(incidence_aphids),
+            percent_incidence_aphids = (sum_incidence_aphids / total_count_samples_aphids) * percent_100)
+#####
+
+#### FAW ####
+faw <-
+  insect_raw_parsed %>% 
+  select(FarmID, Region,`Collection Date`, Province, Municipality, `Crop Stage`, Treatment, Barangay, 
+         `Corn Type`, Variety, mean_temp, mean_humid, mean_rain, mean_wind, Month, starts_with("Fall Armyworm - Damage Rating ")) %>%
+  filter(Municipality != "Santa Rita" & Municipality != "Hilongos" & 
+           Municipality != "Tomas Oppus") 
+
+faw$collect_date <-
+  as.Date(faw$`Collection Date`, "%B %d, %Y") 
+
+faw <-
+  faw %>% 
+  mutate(Year = year(collect_date), Month = month(collect_date)) %>% 
+  left_join(monthly_averages, by=c('Year', 'Month')) %>%
+  rowwise() %>%
+  mutate(sum_0 = sum(c_across(starts_with("Fall Armyworm - Damage Rating ")) == "0"),
+         sum_1 = sum(c_across(starts_with("Fall Armyworm - Damage Rating ")) == "1"),
+         sum_2 = sum(c_across(starts_with("Fall Armyworm - Damage Rating ")) == "2"),
+         sum_3 = sum(c_across(starts_with("Fall Armyworm - Damage Rating ")) == "3"),
+         sum_4 = sum(c_across(starts_with("Fall Armyworm - Damage Rating ")) == "4"),
+         sum_5 = sum(c_across(starts_with("Fall Armyworm - Damage Rating ")) == "5"),
+         sum_6 = sum(c_across(starts_with("Fall Armyworm - Damage Rating ")) == "6"),
+         sum_7 = sum(c_across(starts_with("Fall Armyworm - Damage Rating ")) == "7"),
+         sum_8 = sum(c_across(starts_with("Fall Armyworm - Damage Rating ")) == "8"),
+         sum_9 = sum(c_across(starts_with("Fall Armyworm - Damage Rating ")) == "9"),
+         average_damage_faw = (((1 * sum_1) + (3 * sum_3) + (5 * sum_5) + (7 * sum_7) + (9 * sum_9) + (2 * sum_2) + (4 * sum_4) + (6 * sum_6) + (8 * sum_8)) / (number_sampled_plants)),
+         damage_rating_faw = (((1 * sum_1) + (3 * sum_3) + (5 * sum_5) + (7 * sum_7) + (9 * sum_9) + (2 * sum_2) + (4 * sum_4) + (6 * sum_6) + (8 * sum_8)) / (number_sampled_plants * 9)) * percent_100,
+         incidence_faw = ((sum(c_across(sum_1:sum_9)))* percent_100) / number_sampled_plants,
+         )
+
+summary_faw <-  
+  faw %>%
+  mutate(Year = year(ymd(collect_date))) %>%   
+  group_by(Region, Province, Year, Month, Municipality, `Corn Type`, Treatment, mean_temp.x, mean_humid.x, mean_rain.x, mean_wind.x, Barangay, `Crop Stage`) %>%
+  remove_missing(na.rm=TRUE) %>%
+  summarise(total_count_samples_faw = n() * number_sampled_plants,
+            sum_avg_dmg_faw = sum(average_damage_faw),
+            sum_dmg_rate_faw = sum(damage_rating_faw),
+            sum_incidence_faw = sum(incidence_faw),
+            percent_incidence_faw = (sum_incidence_faw / total_count_samples_faw) * percent_100)
+
+##### 
+# Summaries insects ####
+insects_summary_overall <-
+    summary_borer %>%
+      left_join(summary_semilooper) %>% 
+      left_join(summary_earworm) %>%
+      left_join(summary_cutworm) %>%
+      left_join(summary_hopper) %>%
+      left_join(summary_armyworm) %>%
+      left_join(summary_aphids) %>%
+      left_join(summary_faw)
+
+write.csv(insects_summary_overall, "Arthropod Pests Summary May 2020 - August 2023.csv")
+#####
+```
+
+```Summaries```
+
+``` Pests by REGION ```
+```{r}
+#### by region #########
+summary_faw_region <-
+  summary_faw %>%
+  group_by(factor(Region)) %>% 
+  summarise(w=mean(percent_incidence_faw), sd = mean_sd(percent_incidence_faw)) %>% 
+  arrange(desc(w))
+
+
+summary_aphids_region <-
+  summary_aphids %>%
+  group_by(factor(Region)) %>% 
+  summarise(w=mean(percent_incidence_aphids), sd = mean_sd(percent_incidence_aphids)) %>% 
+  arrange(desc(w))
+
+summary_armyworm_region <-
+  summary_armyworm %>%
+  group_by(factor(Region)) %>% 
+  summarise(w=mean(percent_incidence_armyworm), sd = mean_sd(percent_incidence_armyworm)) %>% 
+  arrange(desc(w))
+
+
+summary_hopper_region <-
+  summary_hopper %>%
+  group_by(factor(Region)) %>% 
+  summarise(w=mean(percent_incidence_hopper), sd = mean_sd(percent_incidence_hopper)) %>% 
+  arrange(desc(w))
+
+summary_cutworm_region <-
+  summary_cutworm %>%
+  group_by(factor(Region)) %>% 
+  summarise(w=mean(percent_incidence_cutworm), sd = mean_sd(percent_incidence_cutworm)) %>% 
+  arrange(desc(w))
+
+summary_earworm_region <-
+  summary_earworm %>%
+  group_by(factor(Region)) %>% 
+  summarise(w=mean(percent_incidence_earworm), sd = mean_sd(percent_incidence_earworm)) %>% 
+  arrange(desc(w))
+
+summary_borer_region <-
+  summary_borer %>%
+  group_by(factor(Region)) %>% 
+  summarise(w=mean(percent_incidence_borer), sd = mean_sd(percent_incidence_borer)) %>% 
+  arrange(desc(w))
+
+
+summary_semilooper_region <-
+  summary_semilooper %>%
+  group_by(factor(Region)) %>% 
+  summarise(w=mean(percent_incidence_semilooper), sd = mean_sd(percent_incidence_semilooper)) %>% 
+  arrange(desc(w))
+
+
+summary_pests_region <-
+  data.frame(
+    Pests = c("Borer", "Semilooper", 
+              "Cutworm", "Earworm", 
+              "Armyworm", "Corn Plant Hopper", 
+              "Aphids", "FAW"),
+    Regional_Incidence 
+                 = c(summary_borer_region$w[1],
+                 summary_semilooper_region$w[1],
+                 summary_cutworm_region$w[1],
+                 summary_earworm_region$w[1],
+                 summary_armyworm_region$w[1],
+                 summary_hopper_region$w[1],
+                 summary_aphids_region$w[1],
+                 summary_faw_region$w[1]
+             )
+    ) 
+
+summary_pests_region <-
+  summary_pests_region %>% 
+  arrange(desc(Regional_Incidence))
+write.csv(summary_pests_region, "summary_pests/Regional Top Pests Percent Incidence.csv")
+########
+```
+
+``` 
+Pests by YEAR```
+```{r}
+### by year ####
+summary_borer_year <-
+  summary_borer %>%
+  group_by(factor(Year)) %>% 
+  summarise(w=mean(percent_incidence_borer), sd = mean_sd(percent_incidence_borer)) %>% 
+  arrange(desc(w))
+
+
+summary_semilooper_year <-
+  summary_semilooper %>%
+  group_by(factor(Year)) %>% 
+  summarise(w=mean(percent_incidence_semilooper), sd = mean_sd(percent_incidence_semilooper)) %>% 
+  arrange(desc(w))
+
+summary_earworm_year <-
+  summary_earworm %>%
+  group_by(factor(Year)) %>% 
+  summarise(w=mean(percent_incidence_earworm), sd = mean_sd(percent_incidence_earworm)) %>% 
+  arrange(desc(w))
+
+
+summary_cutworm_year <-
+  summary_cutworm %>%
+  group_by(factor(Year)) %>% 
+  summarise(w=mean(percent_incidence_cutworm), sd = mean_sd(percent_incidence_cutworm)) %>% 
+  arrange(desc(w))
+
+summary_hopper_year <-
+  summary_hopper %>%
+  group_by(factor(Year)) %>% 
+  summarise(w=mean(percent_incidence_hopper), sd = mean_sd(percent_incidence_hopper)) %>% 
+  arrange(desc(w))
+
+summary_armyworm_year <-
+  summary_armyworm %>%
+  group_by(factor(Year)) %>% 
+  summarise(w=mean(percent_incidence_armyworm), sd = mean_sd(percent_incidence_armyworm)) %>% 
+  arrange(desc(w))
+
+summary_aphids_year <-
+  summary_aphids %>%
+  group_by(factor(Year)) %>% 
+  summarise(w=mean(percent_incidence_aphids), sd = mean_sd(percent_incidence_aphids)) %>% 
+  arrange(desc(w))
+
+
+summary_faw_year <-
+  summary_faw %>%
+  group_by(factor(Year)) %>% 
+  summarise(w=mean(percent_incidence_faw), sd = mean_sd(percent_incidence_faw)) %>% 
+  arrange(desc(w))
+
+
+summary_pests_year <-
+  data.frame(
+    Pests = c("Aphids", "FAW", 
+              "Corn Plant Hopper", "Cutworm", 
+              "Earworm", "Armyworm", 
+              "Corn semilooper", "Borer"),
+    `2020` 
+                 = c(summary_aphids_year %>% 
+                       filter(`factor(Year)` == "2020") %$% w,
+                     summary_faw_year %>% 
+                       filter(`factor(Year)` == "2020") %$% w,
+                     summary_hopper_year %>% 
+                       filter(`factor(Year)` == "2020") %$% w,
+                     summary_cutworm_year %>% 
+                       filter(`factor(Year)` == "2020") %$% w,
+                     summary_earworm_year %>% 
+                       filter(`factor(Year)` == "2020") %$% w,
+                     summary_armyworm_year %>% 
+                       filter(`factor(Year)` == "2020") %$% w,
+                     summary_semilooper_year %>% 
+                       filter(`factor(Year)` == "2020") %$% w,
+                     summary_borer_year %>% 
+                       filter(`factor(Year)` == "2020") %$% w
+                     ),
+    `2021` 
+                 = c(summary_aphids_year %>% 
+                       filter(`factor(Year)` == "2021") %$% w,
+                     summary_faw_year %>% 
+                       filter(`factor(Year)` == "2021") %$% w,
+                     summary_hopper_year %>% 
+                       filter(`factor(Year)` == "2021") %$% w,
+                     summary_cutworm_year %>% 
+                       filter(`factor(Year)` == "2021") %$% w,
+                     summary_earworm_year %>% 
+                       filter(`factor(Year)` == "2021") %$% w,
+                     summary_armyworm_year %>% 
+                       filter(`factor(Year)` == "2021") %$% w,
+                     summary_semilooper_year %>% 
+                       filter(`factor(Year)` == "2021") %$% w,
+                     summary_borer_year %>% 
+                       filter(`factor(Year)` == "2021") %$% w
+                     ),
+    
+    `2022` 
+                 = c(summary_aphids_year %>% 
+                       filter(`factor(Year)` == "2022") %$% w,
+                     summary_faw_year %>% 
+                       filter(`factor(Year)` == "2022") %$% w,
+                     summary_hopper_year %>% 
+                       filter(`factor(Year)` == "2022") %$% w,
+                     summary_cutworm_year %>% 
+                       filter(`factor(Year)` == "2022") %$% w,
+                     summary_earworm_year %>% 
+                       filter(`factor(Year)` == "2022") %$% w,
+                     summary_armyworm_year %>% 
+                       filter(`factor(Year)` == "2022") %$% w,
+                     summary_semilooper_year %>% 
+                       filter(`factor(Year)` == "2022") %$% w,
+                     summary_borer_year %>% 
+                       filter(`factor(Year)` == "2022") %$% w
+                     ),
+    `2023` 
+                 = c(summary_aphids_year %>% 
+                       filter(`factor(Year)` == "2023") %$% w,
+                     summary_faw_year %>% 
+                       filter(`factor(Year)` == "2023") %$% w,
+                     summary_hopper_year %>% 
+                       filter(`factor(Year)` == "2023") %$% w,
+                     summary_cutworm_year %>% 
+                       filter(`factor(Year)` == "2023") %$% w,
+                     summary_earworm_year %>% 
+                       filter(`factor(Year)` == "2023") %$% w,
+                     summary_armyworm_year %>% 
+                       filter(`factor(Year)` == "2023") %$% w,
+                     summary_semilooper_year %>% 
+                       filter(`factor(Year)` == "2023") %$% w,
+                     summary_borer_year %>% 
+                       filter(`factor(Year)` == "2023") %$% w
+                 )
+    
+  ) 
+
+summary_pests_year_2020 <-
+  summary_pests_year %>% 
+  select(Pests, X2020) %>%
+  arrange(desc(X2020))
+write.csv(summary_insects_year_2020, "summary_pests/Top Pests for 2020.csv")
+
+summary_pests_year_2021 <-
+  summary_pests_year %>% 
+  select(Pests, X2021) %>%
+  arrange(desc(X2021))
+write.csv(summary_pests_year_2021, "summary_pests/Top Pests for 2021.csv")
+
+summary_pests_year_2022 <-
+  summary_pests_year %>% 
+  select(Pests, X2022) %>%
+  arrange(desc(X2022))
+write.csv(summary_pests_year_2022, "summary_pests/Top Pests for 2022.csv")
+
+summary_pests_year <-
+  summary_pests_year %>% 
+  select(Pests, X2023) %>%
+  arrange(desc(X2023))
+write.csv(summary_pests_year, "summary_pests/Top Pests for 2023.csv")
+
+
+
+summary_pests_Year_df <-
+  summary_pests_year_2020 %>%
+  full_join(summary_pests_year_2021) %>%
+  full_join(summary_pests_year_2022) %>%
+  full_join(summary_pests_year)
+
+
+write.csv(summary_pests_Year_df, "summary_pests/Top Pests by Year.csv")
+#####
+```
+
+``` Pests by CORN TYPE ```
+```{r}
+##### by corn type ############
+summary_faw_corntype <-
+  summary_faw %>%
+  group_by(factor(`Corn Type`)) %>% 
+  summarise(w=mean(percent_incidence_faw), sd = mean_sd(percent_incidence_faw)) %>% 
+  arrange(desc(w))
+
+
+summary_aphids_corntype <-
+  summary_aphids %>%
+  group_by(factor(`Corn Type`)) %>% 
+  summarise(w=mean(percent_incidence_aphids), sd = mean_sd(percent_incidence_aphids)) %>% 
+  arrange(desc(w))
+
+summary_armyworm_corntype <-
+  summary_armyworm %>%
+  group_by(factor(`Corn Type`)) %>% 
+  summarise(w=mean(percent_incidence_armyworm), sd = mean_sd(percent_incidence_armyworm)) %>% 
+  arrange(desc(w))
+
+
+summary_hopper_corntype <-
+  summary_hopper %>%
+  group_by(factor(`Corn Type`)) %>% 
+  summarise(w=mean(percent_incidence_hopper), sd = mean_sd(percent_incidence_hopper)) %>% 
+  arrange(desc(w))
+
+summary_cutworm_corntype <-
+  summary_cutworm %>%
+  group_by(factor(`Corn Type`)) %>% 
+  summarise(w=mean(percent_incidence_cutworm), sd = mean_sd(percent_incidence_cutworm)) %>% 
+  arrange(desc(w))
+
+summary_earworm_corntype <-
+  summary_earworm %>%
+  group_by(factor(`Corn Type`)) %>% 
+  summarise(w=mean(percent_incidence_earworm), sd = mean_sd(percent_incidence_earworm)) %>% 
+  arrange(desc(w))
+
+summary_borer_corntype <-
+  summary_borer %>%
+  group_by(factor(`Corn Type`)) %>% 
+  summarise(w=mean(percent_incidence_borer), sd = mean_sd(percent_incidence_borer)) %>% 
+  arrange(desc(w))
+
+
+summary_semilooper_corntype <-
+  summary_semilooper %>%
+  group_by(factor(`Corn Type`)) %>% 
+  summarise(w=mean(percent_incidence_semilooper), sd = mean_sd(percent_incidence_semilooper)) %>% 
+  arrange(desc(w))
+
+
+summary_pests_corntype <-
+  data.frame(
+    Pests = c("Borer", "Semilooper", 
+              "Cutworm", "Earworm", 
+              "Armyworm", "Corn Plant Hopper", 
+              "Aphids", "FAW"),
+    `NGM Percent Incidence` 
+                 = c(summary_borer_corntype %>% 
+                       filter(`factor(\`Corn Type\`)` == "Non - GM Corn") %$% w,
+                 summary_semilooper_corntype %>% 
+                   filter(`factor(\`Corn Type\`)` == "Non - GM Corn") %$% w,
+                 summary_cutworm_corntype %>% 
+                   filter(`factor(\`Corn Type\`)` == "Non - GM Corn") %$% w,
+                 summary_earworm_corntype %>% 
+                   filter(`factor(\`Corn Type\`)` == "Non - GM Corn") %$% w,
+                 summary_armyworm_corntype %>% 
+                   filter(`factor(\`Corn Type\`)` == "Non - GM Corn") %$% w,
+                 summary_hopper_corntype %>% 
+                   filter(`factor(\`Corn Type\`)` == "Non - GM Corn") %$% w,
+                 summary_aphids_corntype %>% 
+                   filter(`factor(\`Corn Type\`)` == "Non - GM Corn") %$% w,
+                 summary_faw_corntype %>% 
+                   filter(`factor(\`Corn Type\`)` == "Non - GM Corn") %$% w
+                 ),
+    `GM Percent Incidence` 
+                 = c(summary_borer_corntype %>% 
+                       filter(`factor(\`Corn Type\`)` == "GM CORN") %$% w,
+                 summary_semilooper_corntype %>% 
+                   filter(`factor(\`Corn Type\`)` == "GM CORN") %$% w,
+                 summary_cutworm_corntype %>% 
+                   filter(`factor(\`Corn Type\`)` == "GM CORN") %$% w,
+                 summary_earworm_corntype %>% 
+                   filter(`factor(\`Corn Type\`)` == "GM CORN") %$% w,
+                 summary_armyworm_corntype %>% 
+                   filter(`factor(\`Corn Type\`)` == "GM CORN") %$% w,
+                 summary_hopper_corntype %>% 
+                   filter(`factor(\`Corn Type\`)` == "GM CORN") %$% w,
+                 summary_aphids_corntype %>% 
+                   filter(`factor(\`Corn Type\`)` == "GM CORN") %$% w,
+                 summary_faw_corntype %>% 
+                   filter(`factor(\`Corn Type\`)` == "GM CORN") %$% w
+                 )
+  ) 
+
+summary_pests_corntype_NGM <-
+  summary_pests_corntype %>% 
+  select(Pests, NGM.Percent.Incidence) %>%
+  arrange(desc(NGM.Percent.Incidence))
+write.csv(summary_pests_corntype_NGM, "summary_pests/Top Pests NGM Corn Type Percent Incidence.csv")
+
+summary_pests_corntype_GM <-
+  summary_pests_corntype %>% 
+  select(Pests, GM.Percent.Incidence) %>%
+  arrange(desc(GM.Percent.Incidence))
+write.csv(summary_pests_corntype_GM, "summary_pests/Top Pests GM Corn Type Percent Incidence.csv")
+
+summary_pests_CornType_df <-
+  summary_pests_corntype_NGM %>%
+  full_join(summary_pests_corntype_GM) 
+
+write.csv(summary_pests_CornType_df, "summary_pests/Top Pests Corn Type.csv")
+
+
+t_test_cornType_pest <-
+  t.test(summary_pests_CornType_df$NGM.Percent.Incidence,
+       summary_pests_CornType_df$GM.Percent.Incidence)
+
+
+t_test_cornType_pest3 <-
+  summary_pests_CornType_df %>%
+  filter(Pests %in% top_pests) 
+# pivot_longer(-Pests, names_to = "corn_type", values_to = "incidence")
+
+faw_test_cornType <-
+  t_test_cornType_pest3 %>%
+  filter(Pests == "FAW")
+  
+
+t.test(faw_test_cornType$NGM.Percent.Incidence, faw_test_cornType$GM.Percent.Incidence)
+```
+
+``` Pests by PROVINCE ```
+```{r}
+# by Province
+summary_faw_province <-
+  summary_faw %>%
+  group_by(factor(Province)) %>% 
+  summarise(w=mean(percent_incidence_faw), sd = mean_sd(percent_incidence_faw)) %>% 
+  arrange(desc(w))
+
+
+summary_aphids_province <-
+  summary_aphids %>%
+  group_by(factor(Province)) %>% 
+  summarise(w=mean(percent_incidence_aphids), sd = mean_sd(percent_incidence_aphids)) %>% 
+  arrange(desc(w))
+
+summary_armyworm_province <-
+  summary_armyworm %>%
+  group_by(factor(Province)) %>% 
+  summarise(w=mean(percent_incidence_armyworm), sd = mean_sd(percent_incidence_armyworm)) %>% 
+  arrange(desc(w))
+
+
+summary_hopper_province <-
+  summary_hopper %>%
+  group_by(factor(Province)) %>% 
+  summarise(w=mean(percent_incidence_hopper), sd = mean_sd(percent_incidence_hopper)) %>% 
+  arrange(desc(w))
+
+summary_cutworm_province <-
+  summary_cutworm %>%
+  group_by(factor(Province)) %>% 
+  summarise(w=mean(percent_incidence_cutworm), sd = mean_sd(percent_incidence_cutworm)) %>% 
+  arrange(desc(w))
+
+summary_earworm_province <-
+  summary_earworm %>%
+  group_by(factor(Province)) %>% 
+  summarise(w=mean(percent_incidence_earworm), sd = mean_sd(percent_incidence_earworm)) %>% 
+  arrange(desc(w))
+
+summary_borer_province <-
+  summary_borer %>%
+  group_by(factor(Province)) %>% 
+  summarise(w=mean(percent_incidence_borer), sd = mean_sd(percent_incidence_borer)) %>% 
+  arrange(desc(w))
+
+
+summary_semilooper_province <-
+  summary_semilooper %>%
+  group_by(factor(Province)) %>% 
+  summarise(w=mean(percent_incidence_semilooper), sd = mean_sd(percent_incidence_semilooper)) %>% 
+  arrange(desc(w))
+
+
+summary_pests_province <-
+  data.frame(
+    Pests = c("Borer", "Semilooper", 
+              "Cutworm", "Earworm", 
+              "Armyworm", "Corn Plant Hopper", 
+              "Aphids", "FAW"),
+    `Southern Leyte` 
+                 = c(summary_borer_province %>% 
+                   filter(`factor(Province)` == "Southern Leyte") %$% w,
+                 summary_semilooper_province %>% 
+                   filter(`factor(Province)` == "Southern Leyte") %$% w,
+                 summary_cutworm_province %>% 
+                   filter(`factor(Province)` == "Southern Leyte") %$% w,
+                 summary_earworm_province %>% 
+                   filter(`factor(Province)` == "Southern Leyte") %$% w,
+                 summary_armyworm_province %>% 
+                   filter(`factor(Province)` == "Southern Leyte") %$% w,
+                 summary_hopper_province %>% 
+                   filter(`factor(Province)` == "Southern Leyte") %$% w,
+                 summary_aphids_province %>% 
+                   filter(`factor(Province)` == "Southern Leyte") %$% w,
+                 summary_faw_province %>% 
+                   filter(`factor(Province)` == "Southern Leyte") %$% w
+                 ),
+    Leyte
+                 = c(summary_borer_province %>% 
+                   filter(`factor(Province)` == "Leyte") %$% w,
+                 summary_semilooper_province %>% 
+                   filter(`factor(Province)` == "Leyte") %$% w,
+                 summary_cutworm_province %>% 
+                   filter(`factor(Province)` == "Leyte") %$% w,
+                 summary_earworm_province %>% 
+                   filter(`factor(Province)` == "Leyte") %$% w,
+                 summary_armyworm_province %>% 
+                   filter(`factor(Province)` == "Leyte") %$% w,
+                 summary_hopper_province %>% 
+                   filter(`factor(Province)` == "Leyte") %$% w,
+                 summary_aphids_province %>% 
+                   filter(`factor(Province)` == "Leyte") %$% w,
+                 summary_faw_province %>% 
+                   filter(`factor(Province)` == "Leyte") %$% w
+                 ),
+    Samar
+                 = c(summary_borer_province %>% 
+                   filter(`factor(Province)` == "Samar") %$% w,
+                 summary_semilooper_province %>% 
+                   filter(`factor(Province)` == "Samar") %$% w,
+                 summary_cutworm_province %>% 
+                   filter(`factor(Province)` == "Samar") %$% w,
+                 summary_earworm_province %>% 
+                   filter(`factor(Province)` == "Samar") %$% w,
+                 summary_armyworm_province %>% 
+                   filter(`factor(Province)` == "Samar") %$% w,
+                 summary_hopper_province %>% 
+                   filter(`factor(Province)` == "Samar") %$% w,
+                 summary_aphids_province %>% 
+                   filter(`factor(Province)` == "Samar") %$% w,
+                 summary_faw_province %>% 
+                   filter(`factor(Province)` == "Samar") %$% w
+                 )
+  ) 
+
+summary_pests_Leyte <-
+  summary_pests_province %>% 
+  select(Pests, Leyte) %>%
+  arrange(desc(Leyte))
+write.csv(summary_pests_Leyte, "summary_pests/Top Pests Leyte Percent Incidence.csv")
+
+
+
+summary_pests_So_Leyte <-
+  summary_pests_province %>% 
+  select(Pests, Southern.Leyte) %>%
+  arrange(desc(Southern.Leyte))
+write.csv(summary_pests_So_Leyte, "summary_pests/Top Pests Southern Leyte Percent Incidence.csv")
+
+summary_pests_Samar <-
+  summary_pests_province %>% 
+  select(Pests, Samar) %>%
+  arrange(desc(Samar))
+write.csv(summary_pests_Samar, "summary_pests/Top Pests Samar Percent Incidence.csv")
+
+
+
+summary_pests_Province_df <-
+  summary_pests_Leyte %>%
+  full_join(summary_pests_So_Leyte) %>%
+  full_join(summary_pests_Samar)
+
+write.csv(summary_pests_Province_df, "summary_pests/Top Pests Province.csv")
+
+
+summary_pests_Province_aov <-
+  summary_pests_Province_df %>%
+  pivot_longer(-Pests, names_to = "Provinces", values_to = "incidence")
+
+aov_result_province_pest <- aov(incidence ~ Provinces, summary_pests_Province_aov)
+
+summary(aov_result_province_pest)
+TukeyHSD(aov_result_province_pest)
+
+
+summary_pests_Province_aov3 <-
+  summary_pests_Province_df %>%
+  filter(Pests %in% top_pests) %>%
+  pivot_longer(-Pests, names_to = "Provinces", values_to = "incidence")
+
+aov_result_province_pest3 <- aov(incidence ~ Provinces, summary_pests_Province_aov3)
+summary(aov_result_province_pest3)
+################
+
+```
+
+``` Pests by FERTILIZER TREATMENT RATE ```
+```{r}
+##### by fertilizer #####
+summary_faw_fertilizer <-
+  summary_faw %>%
+  group_by(factor(Treatment)) %>% 
+  summarise(w=mean(percent_incidence_faw), sd = mean_sd(percent_incidence_faw)) %>% 
+  arrange(desc(w))
+
+
+summary_aphids_fertilizer <-
+  summary_aphids %>%
+  group_by(factor(Treatment)) %>% 
+  summarise(w=mean(percent_incidence_aphids), sd = mean_sd(percent_incidence_aphids)) %>% 
+  arrange(desc(w))
+
+summary_armyworm_fertilizer <-
+  summary_armyworm %>%
+  group_by(factor(Treatment)) %>% 
+  summarise(w=mean(percent_incidence_armyworm), sd = mean_sd(percent_incidence_armyworm)) %>% 
+  arrange(desc(w))
+
+
+summary_hopper_fertilizer <-
+  summary_hopper %>%
+  group_by(factor(Treatment)) %>% 
+  summarise(w=mean(percent_incidence_hopper), sd = mean_sd(percent_incidence_hopper)) %>% 
+  arrange(desc(w))
+
+summary_cutworm_fertilizer <-
+  summary_cutworm %>%
+  group_by(factor(Treatment)) %>% 
+  summarise(w=mean(percent_incidence_cutworm), sd = mean_sd(percent_incidence_cutworm)) %>% 
+  arrange(desc(w))
+
+summary_earworm_fertilizer <-
+  summary_earworm %>%
+  group_by(factor(Treatment)) %>% 
+  summarise(w=mean(percent_incidence_earworm), sd = mean_sd(percent_incidence_earworm)) %>% 
+  arrange(desc(w))
+
+summary_borer_fertilizer <-
+  summary_borer %>%
+  group_by(factor(Treatment)) %>% 
+  summarise(w=mean(percent_incidence_borer), sd = mean_sd(percent_incidence_borer)) %>% 
+  arrange(desc(w))
+
+
+summary_semilooper_fertilizer <-
+  summary_semilooper %>%
+  group_by(factor(Treatment)) %>% 
+  summarise(w=mean(percent_incidence_semilooper), sd = mean_sd(percent_incidence_semilooper)) %>% 
+  arrange(desc(w))
+
+
+summary_pests_fertilizer <-
+  data.frame(
+    Pests = c("Borer", "Semilooper", 
+              "Cutworm", "Earworm", 
+              "Armyworm", "Corn Plant Hopper", 
+              "Aphids", "FAW"),
+    RFR 
+                 = c(summary_borer_fertilizer %>% 
+                       filter(`factor(Treatment)` == "RFR") %$% w,
+                 summary_semilooper_fertilizer %>%
+                       filter(`factor(Treatment)` == "RFR") %$% w,
+                 summary_cutworm_fertilizer %>% 
+                       filter(`factor(Treatment)` == "RFR") %$% w,
+                 summary_earworm_fertilizer %>% 
+                       filter(`factor(Treatment)` == "RFR") %$% w,
+                 summary_armyworm_fertilizer %>% 
+                       filter(`factor(Treatment)` == "RFR") %$% w,
+                 summary_hopper_fertilizer %>% 
+                       filter(`factor(Treatment)` == "RFR") %$% w,
+                 summary_aphids_fertilizer %>% 
+                       filter(`factor(Treatment)` == "RFR") %$% w,
+                 summary_faw_fertilizer %>% 
+                       filter(`factor(Treatment)` == "RFR") %$% w
+             ),
+    ARFR 
+                 = c(summary_borer_fertilizer %>% 
+                       filter(`factor(Treatment)` == "ARFR") %$% w,
+                 summary_semilooper_fertilizer %>% 
+                       filter(`factor(Treatment)` == "ARFR") %$% w,
+                 summary_cutworm_fertilizer %>% 
+                       filter(`factor(Treatment)` == "ARFR") %$% w,
+                 summary_earworm_fertilizer %>% 
+                       filter(`factor(Treatment)` == "ARFR") %$% w,
+                 summary_armyworm_fertilizer %>% 
+                       filter(`factor(Treatment)` == "ARFR") %$% w,
+                 summary_hopper_fertilizer %>% 
+                       filter(`factor(Treatment)` == "ARFR") %$% w,
+                 summary_aphids_fertilizer %>% 
+                       filter(`factor(Treatment)` == "ARFR") %$% w,
+                 summary_faw_fertilizer %>% 
+                       filter(`factor(Treatment)` == "ARFR") %$% w
+             ),
+    BRFR 
+                 = c(summary_borer_fertilizer %>% 
+                       filter(`factor(Treatment)` == "BRFR") %$% w,
+                 summary_semilooper_fertilizer %>% 
+                       filter(`factor(Treatment)` == "BRFR") %$% w,
+                 summary_cutworm_fertilizer %>% 
+                       filter(`factor(Treatment)` == "BRFR") %$% w,
+                 summary_earworm_fertilizer %>% 
+                       filter(`factor(Treatment)` == "BRFR") %$% w,
+                 summary_armyworm_fertilizer %>% 
+                       filter(`factor(Treatment)` == "BRFR") %$% w,
+                 summary_hopper_fertilizer %>% 
+                       filter(`factor(Treatment)` == "BRFR") %$% w,
+                 summary_aphids_fertilizer %>% 
+                       filter(`factor(Treatment)` == "BRFR") %$% w,
+                 summary_faw_fertilizer %>% 
+                       filter(`factor(Treatment)` == "BRFR") %$% w
+             )
+    ) 
+
+summary_pests_rfr_fertilizer <-
+  summary_pests_fertilizer %>% 
+  select(Pests, RFR) %>%
+  arrange(desc(RFR))
+write.csv(summary_pests_rfr_fertilizer, "summary_pests/Top Pests by RFR Fertilizer Treatment Percent Incidence.csv")
+
+
+summary_pests_brfr_fertilizer <-
+  summary_pests_fertilizer %>% 
+  select(Pests, BRFR) %>%
+  arrange(desc(BRFR))
+write.csv(summary_pests_brfr_fertilizer, "summary_pests/Top Pests by BRFR Fertilizer Treatment Percent Incidence.csv")
+
+
+summary_pests_arfr_fertilizer <-
+  summary_pests_fertilizer %>% 
+  select(Pests, ARFR) %>%
+  arrange(desc(ARFR))
+write.csv(summary_pests_arfr_fertilizer, "summary_pests/Top Pests by ARFR Fertilizer Treatment Percent Incidence.csv")
+
+
+summary_pests_Fertilizer_Rate_df <-
+  summary_pests_rfr_fertilizer %>%
+  full_join(summary_pests_brfr_fertilizer) %>%
+  full_join(summary_pests_arfr_fertilizer)
+
+write.csv(summary_pests_Fertilizer_Rate_df, "summary_pests/Top Pests by Fertilizer Treatment Rate.csv")
+
+
+summary_pests_Fertilizer_Rate_aov <-
+  summary_pests_Fertilizer_Rate_df %>%
+  pivot_longer(-Pests, names_to = "fert_rates", values_to = "incidence")
+
+aov_result_fertrate_pest <- aov(incidence ~ fert_rates, summary_pests_Fertilizer_Rate_aov)
+
+summary(aov_result_fertrate_pest)
+TukeyHSD(aov_result_fertrate_pest)
+
+summary_pests_Fertilizer_Rate_aov3 <-
+  summary_pests_Fertilizer_Rate_df %>%
+  filter(Pests %in% top_pests) %>% 
+  pivot_longer(-Pests, names_to = "fert_rates", values_to = "incidence")
+
+aov_result_fertrate_pest3 <- aov(incidence ~ fert_rates, summary_pests_Fertilizer_Rate_aov3)
+summary(aov_result_fertrate_pest3)
+
+#########################################
+
+############# by Crop stage ###########
+summary_faw_crop_stage <-
+  summary_faw %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_faw), sd = mean_sd(percent_incidence_faw)) %>% 
+  arrange(desc(w))
+
+
+summary_aphids_crop_stage <-
+  summary_aphids %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_aphids), sd = mean_sd(percent_incidence_aphids)) %>% 
+  arrange(desc(w))
+
+summary_armyworm_crop_stage <-
+  summary_armyworm %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_armyworm), sd = mean_sd(percent_incidence_armyworm)) %>% 
+  arrange(desc(w))
+
+
+summary_hopper_crop_stage <-
+  summary_hopper %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_hopper), sd = mean_sd(percent_incidence_hopper)) %>% 
+  arrange(desc(w))
+
+summary_cutworm_crop_stage <-
+  summary_cutworm %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_cutworm), sd = mean_sd(percent_incidence_cutworm)) %>% 
+  arrange(desc(w))
+
+summary_earworm_crop_stage <-
+  summary_earworm %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_earworm), sd = mean_sd(percent_incidence_earworm)) %>% 
+  arrange(desc(w))
+
+summary_borer_crop_stage <-
+  summary_borer %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_borer), sd = mean_sd(percent_incidence_borer)) %>% 
+  arrange(desc(w))
+
+
+summary_semilooper_crop_stage <-
+  summary_semilooper %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_semilooper), sd = mean_sd(percent_incidence_semilooper)) %>% 
+  arrange(desc(w))
+
+
+summary_pests_crop_stage <-
+  data.frame(
+    Pests = c("Borer", "Semilooper", 
+              "Cutworm", "Earworm", 
+              "Armyworm", "Corn Plant Hopper", 
+              "Aphids", "FAW"),
+    Early_whorl 
+                 = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w,
+                 summary_semilooper_crop_stage %>%
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w
+             ),
+    Single_leaf 
+                 = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w,
+                 summary_semilooper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w
+             ),
+    Seedling 
+                 = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w,
+                 summary_semilooper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w
+             ),
+    
+    Mid_whorl = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w,
+                 summary_semilooper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w
+             ),
+   Late_whorl = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w,
+                 summary_semilooper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w
+             ),
+   Tasseling = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w,
+                 summary_semilooper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w
+             ),
+   Silking = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w,
+                 summary_semilooper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w
+             ),
+   Maturity = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w,
+                 summary_semilooper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w
+             )
+    ) 
+
+
+write.csv(summary_pests_crop_stage, "summary_pests/Summary of Corn Crop Stage Pest Incidences .csv")
+
+summary_pests_single_leaf <-
+  summary_pests_crop_stage %>% 
+  select(Pests, Single_leaf) %>%
+  arrange(desc(Single_leaf))
+write.csv(summary_pests_single_leaf, "summary_pests/Top Pests during Single leaf `Crop Stage` Percent Incidence.csv")
+
+
+summary_pests_mid_whorl <-
+  summary_pests_crop_stage %>% 
+  select(Pests, Mid_whorl) %>%
+  arrange(desc(Mid_whorl))
+write.csv(summary_pests_mid_whorl, "summary_pests/Top Pests during Mid whorl `Crop Stage` Percent Incidence.csv")
+
+
+
+summary_pests_early_whorl <-
+  summary_pests_crop_stage %>% 
+  select(Pests, Early_whorl) %>%
+  arrange(desc(Early_whorl))
+write.csv(summary_pests_early_whorl, "summary_pests/Top Pests during Early whorl `Crop Stage` Percent Incidence.csv")
+
+
+
+summary_pests_late_whorl <-
+  summary_pests_crop_stage %>% 
+  select(Pests, Late_whorl) %>%
+  arrange(desc(Late_whorl))
+write.csv(summary_pests_late_whorl, "summary_pests/Top Pests during Late whorl `Crop Stage` Percent Incidence.csv")
+
+
+
+summary_pests_seedling <-
+  summary_pests_crop_stage %>% 
+  select(Pests, Seedling) %>%
+  arrange(desc(Seedling))
+write.csv(summary_pests_seedling, "summary_pests/Top Pests during Seedling `Crop Stage` Percent Incidence.csv")
+
+
+
+summary_pests_tasseling <-
+  summary_pests_crop_stage %>% 
+  select(Pests, Tasseling) %>%
+  arrange(desc(Tasseling))
+write.csv(summary_pests_tasseling, "summary_pests/Top Pests during Tasseling `Crop Stage` Percent Incidence.csv")
+
+
+
+summary_pests_silking <-
+  summary_pests_crop_stage %>% 
+  select(Pests, Silking) %>%
+  arrange(desc(Silking))
+write.csv(summary_pests_silking, "summary_pests/Top Pests during Silking `Crop Stage` Percent Incidence.csv")
+
+
+summary_pests_maturity <-
+  summary_pests_crop_stage %>% 
+  select(Pests, Maturity) %>%
+  arrange(desc(Maturity))
+write.csv(summary_pests_maturity, "summary_pests/Top Pests during Maturity `Crop Stage` Percent Incidence.csv")
+##########################################
+
+```
+
+``` Pests by MONTH (Jan - Jun) ```
+```{r}
+## by Month ####
+faw_monthly <-
+  summary_faw %>%
+  select(Year, Month, percent_incidence_faw, mean_temp.x) %>%
+  group_by(Year, Month, mean_temp.x) %>%
+  summarise(monthly_incidence = mean(percent_incidence_faw))
+
+aphids_monthly <-
+  summary_aphids %>%
+  select(Year, Month, percent_incidence_aphids, mean_temp.x) %>%
+  group_by(Year, Month, mean_temp.x) %>%
+  summarise(monthly_incidence = mean(percent_incidence_aphids))
+
+hopper_monthly <-
+  summary_hopper %>%
+  select(Year, Month, percent_incidence_hopper, mean_temp.x) %>%
+  group_by(Year, Month, mean_temp.x) %>%
+  summarise(monthly_incidence = mean(percent_incidence_hopper))
+
+armyworm_monthly <-
+  summary_armyworm %>%
+  select(Year, Month, percent_incidence_armyworm, mean_temp.x) %>%
+  group_by(Year, Month, mean_temp.x) %>%
+  summarise(monthly_incidence = mean(percent_incidence_armyworm))
+
+earworm_monthly <-
+  summary_earworm %>%
+  select(Year, Month, percent_incidence_earworm, mean_temp.x) %>%
+  group_by(Year, Month, mean_temp.x) %>%
+  summarise(monthly_incidence = mean(percent_incidence_earworm))
+
+cutworm_monthly <-
+  summary_cutworm %>%
+  select(Year, Month, percent_incidence_cutworm, mean_temp.x) %>%
+  group_by(Year, Month, mean_temp.x) %>%
+  summarise(monthly_incidence = mean(percent_incidence_cutworm))
+
+borer_monthly <-
+  summary_borer %>%
+  select(Year, Month, percent_incidence_borer, mean_temp.x) %>%
+  group_by(Year, Month, mean_temp.x) %>%
+  summarise(monthly_incidence = mean(percent_incidence_borer))
+
+semilooper_monthly <-
+  summary_semilooper %>%
+  select(Year, Month, percent_incidence_semilooper, mean_temp.x) %>%
+  group_by(Year, Month, mean_temp.x) %>%
+  summarise(monthly_incidence = mean(percent_incidence_semilooper))
+
+
+summary_pests_monthly_jan_apr <-
+  data.frame(
+    Pests = c("Temperature", "Borer", "Semilooper", 
+              "Cutworm", "Earworm", 
+              "Armyworm", "Corn Plant Hopper", 
+              "Aphids", "FAW"),
+    January = c(c(borer_monthly %>% filter(Month == 1)) %$% mean_temp.x,
+                c(borer_monthly %>% filter(Month == 1)) %$% monthly_incidence,
+                c(semilooper_monthly %>% filter(Month == 1)) %$% monthly_incidence,
+                c(cutworm_monthly %>% filter(Month == 1)) %$% monthly_incidence,
+                c(earworm_monthly %>% filter(Month == 1)) %$% monthly_incidence,
+                c(armyworm_monthly %>% filter(Month == 1)) %$% monthly_incidence,
+                c(hopper_monthly %>% filter(Month == 1)) %$% monthly_incidence,
+                c(aphids_monthly %>% filter(Month == 1)) %$% monthly_incidence,
+                c(faw_monthly %>% filter(Month == 1)) %$% monthly_incidence),
+    February = c(c(borer_monthly %>% filter(Month == 2)) %$% mean_temp.x,
+                c(borer_monthly %>% filter(Month == 2)) %$% monthly_incidence,
+                c(semilooper_monthly %>% filter(Month == 2)) %$% monthly_incidence,
+                c(cutworm_monthly %>% filter(Month == 2)) %$% monthly_incidence,
+                c(earworm_monthly %>% filter(Month == 2)) %$% monthly_incidence,
+                c(armyworm_monthly %>% filter(Month == 2)) %$% monthly_incidence,
+                c(hopper_monthly %>% filter(Month == 2)) %$% monthly_incidence,
+                c(aphids_monthly %>% filter(Month == 2)) %$% monthly_incidence,
+                c(faw_monthly %>% filter(Month == 2)) %$% monthly_incidence),
+    March = c(c(borer_monthly %>% filter(Month == 3)) %$% mean_temp.x,
+                c(borer_monthly %>% filter(Month == 3)) %$% monthly_incidence,
+                c(semilooper_monthly %>% filter(Month == 3)) %$% monthly_incidence,
+                c(cutworm_monthly %>% filter(Month == 3)) %$% monthly_incidence,
+                c(earworm_monthly %>% filter(Month == 3)) %$% monthly_incidence,
+                c(armyworm_monthly %>% filter(Month == 3)) %$% monthly_incidence,
+                c(hopper_monthly %>% filter(Month == 3)) %$% monthly_incidence,
+                c(aphids_monthly %>% filter(Month == 3)) %$% monthly_incidence,
+                c(faw_monthly %>% filter(Month == 3)) %$% monthly_incidence),
+    April = c(c(borer_monthly %>% filter(Month == 4)) %$% mean_temp.x,
+                c(borer_monthly %>% filter(Month == 4)) %$% monthly_incidence,
+                c(semilooper_monthly %>% filter(Month == 4)) %$% monthly_incidence,
+                c(cutworm_monthly %>% filter(Month == 4)) %$% monthly_incidence,
+                c(earworm_monthly %>% filter(Month == 4)) %$% monthly_incidence,
+                c(armyworm_monthly %>% filter(Month == 4)) %$% monthly_incidence,
+                c(hopper_monthly %>% filter(Month == 4)) %$% monthly_incidence,
+                c(aphids_monthly %>% filter(Month == 4)) %$% monthly_incidence,
+                c(faw_monthly %>% filter(Month == 4)) %$% monthly_incidence),
+    May = c(c(borer_monthly %>% filter(Month == 5)) %$% mean_temp.x,
+                c(borer_monthly %>% filter(Month == 5)) %$% monthly_incidence,
+                c(semilooper_monthly %>% filter(Month == 5)) %$% monthly_incidence,
+                c(cutworm_monthly %>% filter(Month == 5)) %$% monthly_incidence,
+                c(earworm_monthly %>% filter(Month == 5)) %$% monthly_incidence,
+                c(armyworm_monthly %>% filter(Month == 5)) %$% monthly_incidence,
+                c(hopper_monthly %>% filter(Month == 5)) %$% monthly_incidence,
+                c(aphids_monthly %>% filter(Month == 5)) %$% monthly_incidence,
+                c(faw_monthly %>% filter(Month == 5)) %$% monthly_incidence),
+    June = c(c(borer_monthly %>% filter(Month == 6)) %$% mean_temp.x,
+                c(borer_monthly %>% filter(Month == 6)) %$% monthly_incidence,
+                c(semilooper_monthly %>% filter(Month == 6)) %$% monthly_incidence,
+                c(cutworm_monthly %>% filter(Month == 6)) %$% monthly_incidence,
+                c(earworm_monthly %>% filter(Month == 6)) %$% monthly_incidence,
+                c(armyworm_monthly %>% filter(Month == 6)) %$% monthly_incidence,
+                c(hopper_monthly %>% filter(Month == 6)) %$% monthly_incidence,
+                c(aphids_monthly %>% filter(Month == 6)) %$% monthly_incidence,
+                c(faw_monthly %>% filter(Month == 6)) %$% monthly_incidence),
+    July = c(c(borer_monthly %>% filter(Month == 7)) %$% mean_temp.x,
+                c(borer_monthly %>% filter(Month == 7)) %$% monthly_incidence,
+                c(semilooper_monthly %>% filter(Month == 7)) %$% monthly_incidence,
+                c(cutworm_monthly %>% filter(Month == 7)) %$% monthly_incidence,
+                c(earworm_monthly %>% filter(Month == 7)) %$% monthly_incidence,
+                c(armyworm_monthly %>% filter(Month == 7)) %$% monthly_incidence,
+                c(hopper_monthly %>% filter(Month == 7)) %$% monthly_incidence,
+                c(aphids_monthly %>% filter(Month == 7)) %$% monthly_incidence,
+                c(faw_monthly %>% filter(Month == 7)) %$% monthly_incidence),
+    August = c(c(borer_monthly %>% filter(Month == 8)) %$% mean_temp.x,
+                c(borer_monthly %>% filter(Month == 8)) %$% monthly_incidence,
+                c(semilooper_monthly %>% filter(Month == 8)) %$% monthly_incidence,
+                c(cutworm_monthly %>% filter(Month == 8)) %$% monthly_incidence,
+                c(earworm_monthly %>% filter(Month == 8)) %$% monthly_incidence,
+                c(armyworm_monthly %>% filter(Month == 8)) %$% monthly_incidence,
+                c(hopper_monthly %>% filter(Month == 8)) %$% monthly_incidence,
+                c(aphids_monthly %>% filter(Month == 8)) %$% monthly_incidence,
+                c(faw_monthly %>% filter(Month == 8)) %$% monthly_incidence),
+    September = c(c(borer_monthly %>% filter(Month == 9)) %$% mean_temp.x,
+                c(borer_monthly %>% filter(Month == 9)) %$% monthly_incidence,
+                c(semilooper_monthly %>% filter(Month == 9)) %$% monthly_incidence,
+                c(cutworm_monthly %>% filter(Month == 9)) %$% monthly_incidence,
+                c(earworm_monthly %>% filter(Month == 9)) %$% monthly_incidence,
+                c(armyworm_monthly %>% filter(Month == 9)) %$% monthly_incidence,
+                c(hopper_monthly %>% filter(Month == 9)) %$% monthly_incidence,
+                c(aphids_monthly %>% filter(Month == 9)) %$% monthly_incidence,
+                c(faw_monthly %>% filter(Month == 9)) %$% monthly_incidence),
+    October = c(c(borer_monthly %>% filter(Month == 10)) %$% mean_temp.x,
+                c(borer_monthly %>% filter(Month == 10)) %$% monthly_incidence,
+                c(semilooper_monthly %>% filter(Month == 10)) %$% monthly_incidence,
+                c(cutworm_monthly %>% filter(Month == 10)) %$% monthly_incidence,
+                c(earworm_monthly %>% filter(Month == 10)) %$% monthly_incidence,
+                c(armyworm_monthly %>% filter(Month == 10)) %$% monthly_incidence,
+                c(hopper_monthly %>% filter(Month == 10)) %$% monthly_incidence,
+                c(aphids_monthly %>% filter(Month == 10)) %$% monthly_incidence,
+                c(faw_monthly %>% filter(Month == 10)) %$% monthly_incidence),
+    November = c(c(borer_monthly %>% filter(Month == 11)) %$% mean_temp.x,
+                c(borer_monthly %>% filter(Month == 11)) %$% monthly_incidence,
+                c(semilooper_monthly %>% filter(Month == 11)) %$% monthly_incidence,
+                c(cutworm_monthly %>% filter(Month == 11)) %$% monthly_incidence,
+                c(earworm_monthly %>% filter(Month == 11)) %$% monthly_incidence,
+                c(armyworm_monthly %>% filter(Month == 11)) %$% monthly_incidence,
+                c(hopper_monthly %>% filter(Month == 11)) %$% monthly_incidence,
+                c(aphids_monthly %>% filter(Month == 11)) %$% monthly_incidence,
+                c(faw_monthly %>% filter(Month == 11)) %$% monthly_incidence),
+    December = c(c(borer_monthly %>% filter(Month == 12)) %$% mean_temp.x,
+                c(borer_monthly %>% filter(Month == 12)) %$% monthly_incidence,
+                c(semilooper_monthly %>% filter(Month == 12)) %$% monthly_incidence,
+                c(cutworm_monthly %>% filter(Month == 12)) %$% monthly_incidence,
+                c(earworm_monthly %>% filter(Month == 12)) %$% monthly_incidence,
+                c(armyworm_monthly %>% filter(Month == 12)) %$% monthly_incidence,
+                c(hopper_monthly %>% filter(Month == 12)) %$% monthly_incidence,
+                c(aphids_monthly %>% filter(Month == 12)) %$% monthly_incidence,
+                c(faw_monthly %>% filter(Month == 12)) %$% monthly_incidence)
+
+    )
+
+write.csv(summary_pests_monthly, "summary_pests/Monthly Pest Incidence Overall.csv")
+#####
+
+######## Pest Plots ##########
+```
+
+``` Pests by CROP STAGE ```
+```{r}
+summary_faw_crop_stage <-
+  summary_faw %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_faw), sd = mean_sd(percent_incidence_faw)) %>% 
+  arrange(desc(w))
+
+
+summary_aphids_crop_stage <-
+  summary_aphids %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_aphids), sd = mean_sd(percent_incidence_aphids)) %>% 
+  arrange(desc(w))
+
+summary_armyworm_crop_stage <-
+  summary_armyworm %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_armyworm), sd = mean_sd(percent_incidence_armyworm)) %>% 
+  arrange(desc(w))
+
+
+summary_hopper_crop_stage <-
+  summary_hopper %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_hopper), sd = mean_sd(percent_incidence_hopper)) %>% 
+  arrange(desc(w))
+
+summary_cutworm_crop_stage <-
+  summary_cutworm %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_cutworm), sd = mean_sd(percent_incidence_cutworm)) %>% 
+  arrange(desc(w))
+
+summary_earworm_crop_stage <-
+  summary_earworm %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_earworm), sd = mean_sd(percent_incidence_earworm)) %>% 
+  arrange(desc(w))
+
+summary_borer_crop_stage <-
+  summary_borer %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_borer), sd = mean_sd(percent_incidence_borer)) %>% 
+  arrange(desc(w))
+
+
+summary_semilooper_crop_stage <-
+  summary_semilooper %>%
+  group_by(factor(`Crop Stage`)) %>% 
+  summarise(w=mean(percent_incidence_semilooper), sd = mean_sd(percent_incidence_semilooper)) %>% 
+  arrange(desc(w))
+
+
+summary_pests_crop_stage <-
+  data.frame(
+    Pests = c("Borer", "Semilooper", 
+              "Cutworm", "Earworm", 
+              "Armyworm", "Corn Plant Hopper", 
+              "Aphids", "FAW"),
+    Early_whorl 
+                 = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w,
+                 summary_semilooper_crop_stage %>%
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Early Whorl") %$% w
+             ),
+    Single_leaf 
+                 = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w,
+                 summary_semilooper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Single Leaf") %$% w
+             ),
+    Seedling 
+                 = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w,
+                 summary_semilooper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Seedling (3 - 4 Leaves)") %$% w
+             ),
+    
+    Mid_whorl = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w,
+                 summary_semilooper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Mid Whorl") %$% w
+             ),
+   Late_whorl = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w,
+                 summary_semilooper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Late Whorl") %$% w
+             ),
+   Tasseling = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w,
+                 summary_semilooper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Tasseling") %$% w
+             ),
+   Silking = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w,
+                 summary_semilooper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Silking") %$% w
+             ),
+   Maturity = c(summary_borer_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w,
+                 summary_semilooper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w,
+                 summary_cutworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w,
+                 summary_earworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w,
+                 summary_armyworm_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w,
+                 summary_hopper_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w,
+                 summary_aphids_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w,
+                 summary_faw_crop_stage %>% 
+                       filter(`factor(\`Crop Stage\`)` == "Maturity") %$% w
+             )
+    ) 
+
+
+```
+
+
+```{r}
+
+color_pests <- c("FAW" = "chocolate2", 
+                  "Earworm"= "deepskyblue2", 
+                "Armyworm" =   "chartreuse3")
+
+# by region plots pests
+summary_pests_region %>%
+  arrange(desc(Regional_Incidence)) %>%
+  slice(1:3) %>%
+  ggplot(aes(x=reorder(Pests, -Regional_Incidence), fill = Pests, y=Regional_Incidence)) +
+  geom_bar(stat = "identity", width = 0.5, show.legend = FALSE) + 
+  #scale_fill_brewer(palette = "Set3") +
+  geom_text(aes(label=sprintf("%1.1f%%", Regional_Incidence),
+                y=Regional_Incidence), nudge_y = -5,
+                colour = "black", fontface = "bold", size=5) +
+  labs(x= NULL,
+       y = "Regional Percent Incidence",
+       title = "Top 3 Pests in Region 8") +
+  scale_fill_manual(values = color_pests) + 
+  theme(plot.title.position = "panel",
+        plot.title = element_text(margin = margin(t=5, b=18),
+                                  hjust = 0.5,
+                                  vjust = -130),
+        plot.margin = margin(t = -10, l = 10, b = 40),
+        axis.text = element_text(size = 12), 
+        axis.title = element_text(size = 14))
+ggsave("summary_pests/Pests Plot/Top 3 Pests in Region 8.png", 
+       dpi = plot_dpi, height = 5, width = 8)
+  
+
+top_pests <-
+  c((summary_pests_region %>%
+    arrange(desc(Regional_Incidence)) %>%
+    slice(1:3))["Pests"])$Pests
+
+```
+
+```{r}
+# by corn type plots pests
+summary_pests_corntype %>%
+  subset(., Pests %in% top_pests) %>%
+  pivot_longer(-Pests, names_to = "Corn_Type", values_to = "Percent_Incidence")  %>%
+  ggplot(aes(x=reorder(Pests, -Percent_Incidence), 
+             fill = Corn_Type, y=Percent_Incidence)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(labels = c("GM", "NGM"), 
+                    values = c("palegreen1", "cadetblue1")) +
+  geom_text(aes(label=sprintf("%1.1f%%", 
+                              Percent_Incidence),
+                y = Percent_Incidence),
+                position = position_dodge(1), vjust = 2,
+                colour = "black", fontface = "bold", size = 4) +
+  labs(x="Pests",
+       y = "Percent Incidence on Corn Type",
+       fill = "Corn Types",
+       title = "Top 3 Pests by Corn Type in Region 8")+
+  theme(plot.title.position = "panel",
+        plot.title = element_text(margin = margin(t=5, b=15),
+                                  hjust = 0.5,
+                                  vjust = -120),
+        plot.margin = margin(t = -10, l = 10, b = 20))
+ggsave("summary_pests/Pests Plot/Top 3 Pests by Corn Type in Region 8.png", dpi = plot_dpi)
+
+
+```
+
+
+```{r}
+# by year pests
+summary_pests_year %>%
+  subset(., Pests %in% top_pests) %>%
+  pivot_longer(-Pests, names_to = "Year", values_to = "Percent_Incidence")  %>%
+  ggplot(aes(x=reorder(Pests, -Percent_Incidence), 
+             fill = Year, y=Percent_Incidence)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(labels = c("2020", "2021", "2022", "2023"), 
+                    values = c("palegreen1", "cadetblue1", "tomato3", "coral" )) +
+  geom_text(aes(label=sprintf("%1.1f%%", 
+                              Percent_Incidence),
+                y = Percent_Incidence),
+                position = position_dodge(1), vjust = 2,
+                colour = "black", fontface = "bold", size = 2.8) +
+  labs(x="Pests",
+       y = "Percent Incidence by Year",
+       fill = "Year",
+       title = "Top 3 Pests by Corn Type in Region 8")+
+  theme(plot.title.position = "panel",
+        plot.title = element_text(margin = margin(t=5, b=15),
+                                  hjust = 0.5,
+                                  vjust = -120),
+        plot.margin = margin(t = -10, l = 10, b = 20),
+        axis.title = element_text(size = 10),
+        axis.text = element_text(size = 8))
+ggsave("summary_pests/Pests Plot/Top 3 Pests by Year in Region 8.png", dpi = plot_dpi)
+
+
+```
+
+```{r}
+# by fertilizer treatment rates plots pests
+summary_pests_fertilizer  %>%
+  subset(., Pests %in% top_pests) %>%
+  pivot_longer(-Pests, names_to = "Fertilizer", values_to = "Percent_Incidence")  %>%
+  ggplot(aes(x=reorder(Pests, -Percent_Incidence), 
+             fill = Fertilizer, y=Percent_Incidence)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(labels = c("BRFR", "RFR", "ARFR"), 
+                    values = c("bisque2", "mediumspringgreen", "cyan3")) +
+  geom_text(aes(label=sprintf("%1.1f%%", 
+                              Percent_Incidence),
+                y = Percent_Incidence),
+                position = position_dodge(1), vjust = 2,
+                colour = "black", fontface = "bold", size = 4) +
+  labs(x="Pests",
+       y = "Percent Incidence on Fertilizer Treatment Rate",
+       fill = "Fertilizer Rates",
+       title = "Top 3 Pests by Fertilizer Treatment Rate in Region 8")+
+  theme(plot.title.position = "panel",
+        plot.title = element_text(margin = margin(t=5, b=15),
+                                  hjust = 0.5,
+                                  vjust = -120),
+        plot.margin = margin(t = -10, l = 10, b = 20))
+ggsave("summary_pests/Pests Plot/Top 3 Pests by Fertilizer Treatment Rate in Region 8.png", dpi = plot_dpi)
+
+
+```
+
+```{r}
+# by Province treatment rates plots pests
+
+summary_pests_province %>%
+  subset(., Pests %in% top_pests) %>%
+  pivot_longer(-Pests, names_to = "Provinces", values_to = "Percent_Incidence")  %>%
+  ggplot(aes(x=reorder(Pests, -Percent_Incidence), 
+             fill = Provinces, y=Percent_Incidence)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(labels = c("Leyte", "Southern Leyte", "Samar"), 
+                    values = c("rosybrown1", "mediumspringgreen", "lightskyblue")) +
+  geom_text(aes(label=sprintf("%1.1f%%", 
+                              Percent_Incidence),
+                y = Percent_Incidence),
+                position = position_dodge(1), vjust = 1,
+                colour = "black", fontface = "bold", size = 4) +
+  labs(x="Pests",
+       y = "Percent Incidence by Province",
+       title = "Top 3 Pests by Province in Region 8",
+       fill = "Provinces") +
+  theme(plot.title.position = "panel",
+        plot.title = element_text(margin = margin(t=5, b=15),
+                                  hjust = 0.5,
+                                  vjust = -120),
+        plot.margin = margin(t = -10, l = 10, b = 20))
+ggsave("summary_pests/Pests Plot/Top 3 Pests by Province in Region 8.png")
+
+                                  
+################################################
+
+
+
+```
+
+```{r}
+# crop stage plot ####
+summary_pests_crop_stage$Emergence <- 0
+stage_levels <- c("Emergence", "Single_leaf", 
+                  "Seedling","Early_whorl",
+                  "Mid_whorl" ,"Late_whorl",
+                  "Tasseling","Silking", "Maturity")
+
+linewidth <- 4
+
+summary_pests_crop_stage_plot <-
+  summary_pests_crop_stage %>%
+  subset(., Pests %in% top_pests) %>%
+  pivot_longer(-Pests, 
+               names_to = "crop_stage", 
+               values_to = "incidence",
+               sep = "_") 
+
+summary_pests_crop_stage_plot %>%
+  subset(., Pests %in% top_pests) %>%
+  ggplot(aes(x = crop_stage, 
+             y = incidence, 
+             color = Pests,
+             group = Pests)) +
+  geom_line(linewidth = 3,
+            position = position_dodge(1)) +
+  scale_x_discrete(limits = stage_levels,
+                   labels = stage_levels) +
+  scale_y_continuous(limits = c(0, 115), 
+                     breaks = c(seq(0, 115, by = 5))) +
+  labs(y = "Percent Incidences",
+       x = "Corn Crop Growth Stages",
+       title = "Top 3 Pest Incidences Per Crop Growth Stage") +
+  theme(axis.text.x = element_text(angle = 30, 
+                                   vjust = 1, 
+                                   hjust = 1, 
+                                   size = 14),
+        axis.title = element_text(size = 14, face="bold")) +
+  scale_color_manual(values = color_pests) +
+  theme(plot.title.position = "panel",
+        plot.title = element_text(margin = margin(t=5, b=15),
+                                  hjust = 0.5,
+                                  vjust = -109,
+                                  size = 20),
+        plot.margin = margin(t = -10, l = 10, b = 40),
+        axis.text = element_text(size = 18), 
+        axis.title = element_text(size = 16),
+        legend.text = element_text(size = 16),
+        legend.title = element_text(size = 18))
+ggsave("summary_pests/Pests Plot/Summary of Pest Incidences Per Growth Stage from January - June 2023.png", dpi = plot_dpi, height = plot_height, width = 10)
+```
+
+
+```{r}
+################## Correlations ################
+# faw, hopper, cutworm, armyworm, aphids, borer, earworm, semilooper
+library("correlation")
+
+# earworm
+earworm_cor_test_wind <- cor_test(earworm, "mean_wind", "incidence_earworm")
+earworm_cor_test_temp <- cor_test(earworm, "mean_temp.x", "incidence_earworm")
+earworm_cor_test_humid <- cor_test(earworm, "mean_humid", "incidence_earworm")
+earworm_cor_test_rain <- cor_test(earworm, "mean_rain", "incidence_earworm")
+
+corr_earworm <- data.frame(
+  weather_parameter = c(earworm_cor_test_wind$Parameter1, earworm_cor_test_temp$Parameter1, earworm_cor_test_humid$Parameter1, earworm_cor_test_rain$Parameter1),
+  incidence = c(earworm_cor_test_wind$Parameter2, earworm_cor_test_temp$Parameter2, earworm_cor_test_humid$Parameter2, earworm_cor_test_rain$Parameter2),
+  r_coef = c(earworm_cor_test_wind$r, earworm_cor_test_temp$r, earworm_cor_test_humid$r, earworm_cor_test_rain$r),
+  p_val  = c(earworm_cor_test_wind$p, earworm_cor_test_temp$p, earworm_cor_test_humid$p, earworm_cor_test_rain$p)
+) %>% mutate(r_coef = round(r_coef, 3),
+             p_val = round(p_val, 4))
+
+
+
+# borer
+borer_cor_test_wind <- cor_test(borer, "mean_wind", "incidence_borer")
+borer_cor_test_temp <- cor_test(borer, "mean_temp.x", "incidence_borer")
+borer_cor_test_humid <- cor_test(borer, "mean_humid", "incidence_borer")
+borer_cor_test_rain <- cor_test(borer, "mean_rain", "incidence_borer")
+
+corr_borer <- data.frame(
+  weather_parameter = c(borer_cor_test_wind$Parameter1, borer_cor_test_temp$Parameter1, borer_cor_test_humid$Parameter1, borer_cor_test_rain$Parameter1),
+  incidence = c(borer_cor_test_wind$Parameter2, borer_cor_test_temp$Parameter2, borer_cor_test_humid$Parameter2, borer_cor_test_rain$Parameter2),
+  r_coef = c(borer_cor_test_wind$r, borer_cor_test_temp$r, borer_cor_test_humid$r, borer_cor_test_rain$r),
+  p_val  = c(borer_cor_test_wind$p, borer_cor_test_temp$p, borer_cor_test_humid$p, borer_cor_test_rain$p)
+) %>% mutate(r_coef = round(r_coef, 3),
+             p_val = round(p_val, 4))
+
+
+# semilooper
+semilooper_cor_test_wind <- cor_test(semilooper, "mean_wind", "incidence_semilooper")
+semilooper_cor_test_temp <- cor_test(semilooper, "mean_temp.x", "incidence_semilooper")
+semilooper_cor_test_humid <- cor_test(semilooper, "mean_humid", "incidence_semilooper")
+semilooper_cor_test_rain <- cor_test(semilooper, "mean_rain", "incidence_semilooper")
+
+corr_semilooper <- data.frame(
+  weather_parameter = c(semilooper_cor_test_wind$Parameter1, semilooper_cor_test_temp$Parameter1, semilooper_cor_test_humid$Parameter1, semilooper_cor_test_rain$Parameter1),
+  incidence = c(semilooper_cor_test_wind$Parameter2, semilooper_cor_test_temp$Parameter2, semilooper_cor_test_humid$Parameter2, semilooper_cor_test_rain$Parameter2),
+  r_coef = c(semilooper_cor_test_wind$r, semilooper_cor_test_temp$r, semilooper_cor_test_humid$r, semilooper_cor_test_rain$r),
+  p_val  = c(semilooper_cor_test_wind$p, semilooper_cor_test_temp$p, semilooper_cor_test_humid$p, semilooper_cor_test_rain$p)
+) %>% mutate(r_coef = round(r_coef, 3),
+             p_val = round(p_val, 4))
+
+
+# cutworm
+cutworm_cor_test_wind <- cor_test(cutworm, "mean_wind", "incidence_cutworm")
+cutworm_cor_test_temp <- cor_test(cutworm, "mean_temp.x", "incidence_cutworm")
+cutworm_cor_test_humid <- cor_test(cutworm, "mean_humid", "incidence_cutworm")
+cutworm_cor_test_rain <- cor_test(cutworm, "mean_rain", "incidence_cutworm")
+
+corr_cutworm <- data.frame(
+  weather_parameter = c(cutworm_cor_test_wind$Parameter1, cutworm_cor_test_temp$Parameter1, cutworm_cor_test_humid$Parameter1, cutworm_cor_test_rain$Parameter1),
+  incidence = c(cutworm_cor_test_wind$Parameter2, cutworm_cor_test_temp$Parameter2, cutworm_cor_test_humid$Parameter2, cutworm_cor_test_rain$Parameter2),
+  r_coef = c(cutworm_cor_test_wind$r, cutworm_cor_test_temp$r, cutworm_cor_test_humid$r, cutworm_cor_test_rain$r),
+  p_val  = c(cutworm_cor_test_wind$p, cutworm_cor_test_temp$p, cutworm_cor_test_humid$p, cutworm_cor_test_rain$p)
+) %>% mutate(r_coef = round(r_coef, 3),
+             p_val = round(p_val, 4))
+
+
+
+# hopper
+hopper_cor_test_wind <- cor_test(hopper, "mean_wind", "incidence_hopper")
+hopper_cor_test_temp <- cor_test(hopper, "mean_temp.x", "incidence_hopper")
+hopper_cor_test_humid <- cor_test(hopper, "mean_humid", "incidence_hopper")
+hopper_cor_test_rain <- cor_test(hopper, "mean_rain", "incidence_hopper")
+
+corr_hopper <- data.frame(
+  weather_parameter = c(hopper_cor_test_wind$Parameter1, hopper_cor_test_temp$Parameter1, hopper_cor_test_humid$Parameter1, hopper_cor_test_rain$Parameter1),
+  incidence = c(hopper_cor_test_wind$Parameter2, hopper_cor_test_temp$Parameter2, hopper_cor_test_humid$Parameter2, hopper_cor_test_rain$Parameter2),
+  r_coef = c(hopper_cor_test_wind$r, hopper_cor_test_temp$r, hopper_cor_test_humid$r, hopper_cor_test_rain$r),
+  p_val  = c(hopper_cor_test_wind$p, hopper_cor_test_temp$p, hopper_cor_test_humid$p, hopper_cor_test_rain$p)
+) %>% mutate(r_coef = round(r_coef, 3),
+             p_val = round(p_val, 4))
+
+
+
+
+# aphids
+aphids_cor_test_wind <- cor_test(aphids, "mean_wind", "incidence_aphids")
+aphids_cor_test_temp <- cor_test(aphids, "mean_temp.x", "incidence_aphids")
+aphids_cor_test_humid <- cor_test(aphids, "mean_humid", "incidence_aphids")
+aphids_cor_test_rain <- cor_test(aphids, "mean_rain", "incidence_aphids")
+
+corr_aphids <- data.frame(
+  weather_parameter = c(aphids_cor_test_wind$Parameter1, aphids_cor_test_temp$Parameter1, aphids_cor_test_humid$Parameter1, aphids_cor_test_rain$Parameter1),
+  incidence = c(aphids_cor_test_wind$Parameter2, aphids_cor_test_temp$Parameter2, aphids_cor_test_humid$Parameter2, aphids_cor_test_rain$Parameter2),
+  r_coef = c(aphids_cor_test_wind$r, aphids_cor_test_temp$r, aphids_cor_test_humid$r, aphids_cor_test_rain$r),
+  p_val  = c(aphids_cor_test_wind$p, aphids_cor_test_temp$p, aphids_cor_test_humid$p, aphids_cor_test_rain$p)
+) %>% mutate(r_coef = round(r_coef, 3),
+             p_val = round(p_val, 4))
+
+
+
+# armyworm
+armyworm_cor_test_wind <- cor_test(armyworm, "mean_wind", "incidence_armyworm")
+armyworm_cor_test_temp <- cor_test(armyworm, "mean_temp.x", "incidence_armyworm")
+armyworm_cor_test_humid <- cor_test(armyworm, "mean_humid", "incidence_armyworm")
+armyworm_cor_test_rain <- cor_test(armyworm, "mean_rain", "incidence_armyworm")
+
+corr_armyworm <- data.frame(
+  weather_parameter = c(armyworm_cor_test_wind$Parameter1, armyworm_cor_test_temp$Parameter1, armyworm_cor_test_humid$Parameter1, armyworm_cor_test_rain$Parameter1),
+  incidence = c(armyworm_cor_test_wind$Parameter2, armyworm_cor_test_temp$Parameter2, armyworm_cor_test_humid$Parameter2, armyworm_cor_test_rain$Parameter2),
+  r_coef = c(armyworm_cor_test_wind$r, armyworm_cor_test_temp$r, armyworm_cor_test_humid$r, armyworm_cor_test_rain$r),
+  p_val  = c(armyworm_cor_test_wind$p, armyworm_cor_test_temp$p, armyworm_cor_test_humid$p, armyworm_cor_test_rain$p)
+) %>% mutate(r_coef = round(r_coef, 3),
+             p_val = round(p_val, 4))
+
+
+
+# faw
+faw_cor_test_wind <- cor_test(faw, "mean_wind", "incidence_faw")
+faw_cor_test_temp <- cor_test(faw, "mean_temp.x", "incidence_faw")
+faw_cor_test_humid <- cor_test(faw, "mean_humid", "incidence_faw")
+faw_cor_test_rain <- cor_test(faw, "mean_rain", "incidence_faw")
+
+corr_faw <- data.frame(
+  weather_parameter = c(faw_cor_test_wind$Parameter1, faw_cor_test_temp$Parameter1, faw_cor_test_humid$Parameter1, faw_cor_test_rain$Parameter1),
+  incidence = c(faw_cor_test_wind$Parameter2, faw_cor_test_temp$Parameter2, faw_cor_test_humid$Parameter2, faw_cor_test_rain$Parameter2),
+  r_coef = c(faw_cor_test_wind$r, faw_cor_test_temp$r, faw_cor_test_humid$r, faw_cor_test_rain$r),
+  p_val  = c(faw_cor_test_wind$p, faw_cor_test_temp$p, faw_cor_test_humid$p, faw_cor_test_rain$p)
+) %>% mutate(r_coef = round(r_coef, 3),
+             p_val = round(p_val, 4))
+
+
+
+weather_pest_corr <-
+  corr_faw %>% 
+  full_join(corr_hopper) %>% 
+  full_join(corr_cutworm) %>% 
+  full_join(corr_armyworm) %>%
+  full_join(corr_aphids) %>%
+  full_join(corr_borer) %>%
+  full_join(corr_earworm) %>%
+  full_join(corr_semilooper)
+
+write.csv(weather_pest_corr, "summary_pests/Weather__Pest_Correlation.csv")
+
+
+
+hopper %>% select(mean_temp.x, `Crop Stage`) %>% group_by(`Crop Stage`) %>% summarise(mean_temperatures = mean(mean_temp.x))
+
+```
+
+
+``` Corn Crop Stage and Percent incidence Jan-Jun ```
+```{r}
+# crop stage plot ####
+summary_pests_crop_stage$Emergence <- 0
+stage_levels <- c("Emergence", "Single_leaf", 
+                  "Seedling","Early_whorl",
+                  "Mid_whorl" ,"Late_whorl",
+                  "Tasseling","Silking", "Maturity")
+
+summary_pests_crop_stage__plot <-
+  summary_pests_crop_stage %>%
+  pivot_longer(-Pests, 
+               names_to = "crop_stage", 
+               values_to = "incidence") 
+
+summary_pests_crop_stage__plot %>%
+  ggplot(aes(x = crop_stage, 
+             y = incidence, 
+             color = Pests,
+             group = Pests)) +
+  geom_line(linewidth = linewidth - 0.2,
+            position = position_dodge(1)) +
+  scale_x_discrete(limits = stage_levels,
+                   labels = stage_levels) +
+  scale_y_continuous(limits = c(0, 115), 
+                     breaks = c(seq(0, 115, by = 5))) +
+  labs(y = "Percent Incidences",
+       x = "Corn Crop Growth Stages",
+       title = "Summary of Pest Incidences Per Growth Stage from January - June ") +
+  theme(axis.text.x = element_text(angle = 35, 
+                                   vjust = 1, 
+                                   hjust = 1, 
+                                   size = 8),
+        axis.title = element_text(size = 11, face="bold")) +
+  scale_color_brewer(palette = "Accent") +
+  theme(plot.title.position = "panel",
+        plot.title = element_text(margin = margin(t=5, b=15),
+                                  hjust = 0.5,
+                                  vjust = -133),
+        plot.margin = margin(t = -10, l = 10, b = 20))
+ggsave("summary_pests/Summary of Pest Incidences Per Growth Stage from January - June .png", dpi = plot_dpi, height = plot_height)
+```
+
+
+```{r}
+### Monthly plot pests ####
+# Monthly Plot Pests
+months <- c("January", "February", "March", "April", "May", "June")
+insect_pests = c("Borer", "Semilooper", 
+              "Cutworm", "Earworm", 
+              "Armyworm", "Corn Plant Hopper", 
+              "Aphids", "FAW")
+summary_pests_monthly__plot <-
+  summary_pests_monthly %>%
+  filter(Pests != "Temperature") %>%
+  pivot_longer(-Pests, 
+               names_to = "month", 
+               values_to = "incidence") 
+
+
+summary_temp_monthly__plot <-
+  summary_pests_monthly %>%
+  filter(Pests == "Temperature") %>%
+  pivot_longer(-Pests, names_to = "months", values_to = "temp")
+
+summary_pests_monthly__plot %>%
+  ggplot(aes(x = month, 
+             y = incidence, 
+             color = Pests,
+             group = Pests)) +
+  geom_area(data = summary_temp_monthly__plot,
+            aes(months, temp, fill = Pests), 
+            stat = "identity", 
+            alpha = 0.2,
+            show.legend = FALSE) +
+  geom_line(linewidth = linewidth - 0.2,
+            position = position_dodge(1)) +
+  scale_x_discrete(limits = months,
+                   labels = months) +
+  scale_y_continuous(limits = c(0, 35), 
+                     breaks = c(seq(0, 40, by = 5)),
+                     sec.axis = sec_axis(~., 
+                                         name = "Monthly Temperature")) +
+  labs(y = "Percent Incidence",
+       x = "Cropping Months",
+       title = "Summary of Monthly Pest Incidences from January - June ") +
+  theme(axis.text.x = element_text(angle = 35, 
+                                   vjust = 1, 
+                                   hjust = 1, 
+                                   size = 8),
+        axis.title = element_text(size = 11, face="bold")) +
+  scale_color_brewer(palette = "Paired") +
+  theme(plot.title.position = "panel",
+        plot.title = element_text(margin = margin(t=5, b=15),
+                                  hjust = 0.5,
+                                  vjust = -133),
+        plot.margin = margin(t = -10, l = 10, b = 20))
+ggsave("summary_pests/Summary of Monthly Pest Incidences from January - June .png", dpi = plot_dpi, height = plot_height)
+####
+```
+
+
+
+
+
+```Pest incidences per CROP GROWTH STAGE```
+```{r}
+linewidth <- 1.6
+formula_geom_smooth <- NULL
+plot_height <- 5
+
+insects_cgs <- 
+    insects_summary %>%
+    group_by(`Crop Stage`) %>%
+    mutate(., across(contains("percent_incidence_"), ~ mean(.x))) %>%
+    filter(`Crop Stage` != "Emergence") %>%
+    left_join(temp__insects, by=c("Crop Stage"))
+
+insects_cgs %>%
+  ggplot(aes(x = `Crop Stage`, y = mean_stage_temp, group = 1)) +
+  geom_line()+
+  scale_x_discrete(stage_lvls, labels = stage_lvls)
+
+mean_stage_temp <- insects_cgs$mean_stage_temp
+
+insects_cgs %>%
+  ggplot(aes(x = `Crop Stage`, group = 1)) +
+  geom_line(aes(y = mean_stage_temp)) +
+  geom_smooth(aes(y = percent_incidence_borer, color = "Borer"), linewidth = linewidth,
+              se = FALSE, method = "loess", formula = formula_geom_smooth) + 
+  geom_smooth(aes(y = percent_incidence_semilooper, color = "Semi-looper"),  linewidth = linewidth,
+              se = FALSE, method = "loess", formula = formula_geom_smooth) + 
+  geom_smooth(aes(y = percent_incidence_cutworm, color = "Cutworm"),  linewidth = linewidth,
+              se = FALSE, method = "loess", formula = formula_geom_smooth) + 
+  geom_smooth(aes(y = percent_incidence_earworm, color = "Earworm"),  linewidth = linewidth,
+              se = FALSE, method = "loess", formula = formula_geom_smooth) + 
+  geom_smooth(aes(y = percent_incidence_hopper, color = "Hopper"), linewidth = linewidth,
+              se = FALSE, method = "loess", formula = formula_geom_smooth) + 
+  geom_smooth(aes(y = percent_incidence_aphids, color = "Aphids"), linewidth = linewidth,
+              se = FALSE, method = "loess", formula = formula_geom_smooth) + 
+  geom_smooth(aes(y = percent_incidence_armyworm, color = "Armyworm"),  linewidth = linewidth,
+              se = FALSE, method = "loess", formula = formula_geom_smooth) + 
+  geom_smooth(aes(y = percent_incidence_faw, color = "FAW"),  linewidth = linewidth,
+              se = FALSE, method = "loess", formula = formula_geom_smooth) + 
+  scale_y_continuous(name = "Percent Incidence",
+                     sec.axis = sec_axis(~., name="Mean Temperature")) +
+  labs(y = "Percent Incidences", 
+       x = "Corn Crop Growth Stages",
+       color = "Pests",
+       title = "Summary of Pest Incidences per Growth Stage from January to June ") +
+  scale_x_discrete(stage_lvls, labels = stage_lvls) + 
+  scale_color_brewer(palette = "Accent") +
+  # scale_y_continuous(limits = c(0, 100)) +
+  theme_classic(base_size = 8) +
+  theme(plot.title = element_text(size = 13),
+        axis.text.x = element_text(angle = 35, 
+                                   vjust = 1, 
+                                   hjust = 1, 
+                                   size = 12),
+        axis.title.y.right=element_text(color="red"),
+        axis.text.y.right=element_text(color="red"))
+ggsave(path = "summary_pests", filename = "Summary of Pest Incidences per Growth Stage from January to June .png", height = plot_height, dpi=plot_dpi)
+```
+
+
+
+
+```{r}
+######################### mean percent incidences#################
+
+# semilooper_mpi <-
+#   summary_semilooper %>% 
+#   select(`Crop Stage`, percent_incidence_semilooper) %>% 
+#   group_by(`Crop Stage`) %>%
+#   summarise(mean_incidence = mean(percent_incidence_semilooper))
+# 
+# earworm_mpi <-
+#   summary_earworm %>% 
+#   select(`Crop Stage`, percent_incidence_earworm) %>% 
+#   group_by(`Crop Stage`) %>%
+#   summarise(mean_incidence = mean(percent_incidence_earworm))
+# 
+# borer_mpi <-
+#   summary_borer %>% 
+#   select(`Crop Stage`, percent_incidence_borer) %>% 
+#   group_by(`Crop Stage`) %>%
+#   summarise(mean_incidence = mean(percent_incidence_borer))
+# 
+# aphids_mpi <-
+#   summary_aphids %>% 
+#   select(`Crop Stage`, percent_incidence_aphids) %>% 
+#   group_by(`Crop Stage`) %>%
+#   summarise(mean_incidence = mean(percent_incidence_aphids))
+# 
+# armyworm_mpi <-
+#   summary_armyworm %>% 
+#   select(`Crop Stage`, percent_incidence_armyworm) %>% 
+#   group_by(`Crop Stage`) %>%
+#   summarise(mean_incidence = mean(percent_incidence_armyworm))
+# 
+# hopper_mpi <-
+#   summary_hopper %>% 
+#   select(`Crop Stage`, percent_incidence_hopper) %>% 
+#   group_by(`Crop Stage`) %>%
+#   summarise(mean_incidence = mean(percent_incidence_hopper))
+# 
+# faw_mpi <-
+#   summary_faw %>% 
+#   select(`Crop Stage`, percent_incidence_faw) %>% 
+#   group_by(`Crop Stage`) %>%
+#   summarise(mean_incidence = mean(percent_incidence_faw))
+# 
+# cutworm_mpi <-
+#   summary_cutworm %>% 
+#   select(`Crop Stage`, percent_incidence_cutworm) %>% 
+#   group_by(`Crop Stage`) %>%
+#   summarise(mean_incidence = mean(percent_incidence_cutworm))
+# 
+# 
+#  pest_incidences_by_crop_stage <-
+#    data.frame(
+#     Pests = c("Borer", "Semilooper", 
+#               "Cutworm", "Earworm", 
+#               "Armyworm", "Corn Plant Hopper", 
+#               "Aphids", "FAW"),
+#     
+#     semilooper_mpi %>% filter(`Crop Stage` == "Early Whorl") %$% mean_incidence
+#     
+#    )
+
+################################################################
+
+```
+
+```
+
+```{r setup, include=FALSE}
+sites_count <- 
+  insect_raw_parsed %>% 
+  mutate(municipality = case_when(#Barangay == "Adiongan" ~ "Odiongan",
+                                  is.na(Municipality) ~ "Paranas (Wright)",
+                                  TRUE ~ Municipality)) %>%
+  select(FarmID, Region,Province, municipality) %>%
+     mutate(Year = year(ymd(collect_date))) %>%   group_by(Region, Province, Year, municipality) %>%
+  summarise(sites = n_distinct(FarmID))
+
+write.csv(sites_count, "summary_pests/Number of sites.csv")
+write.csv(insect_raw_parsed, "summary_pests/Insects Raw .csv")
+```

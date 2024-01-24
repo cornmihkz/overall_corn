@@ -1,0 +1,271 @@
+---
+title: "Insects_data"
+author: "Mihkail Cornell"
+date: "2023-08-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidymodels)
+library(tidyr)
+library(tidyverse)
+library(stringr)
+library(dplyr)
+library(lubridate)
+library(tidyselect)
+library(corrr)
+library(correlation)
+library(polycor)
+library(bestNormalize)
+
+insect_raw <- read_csv("pest.csv")
+```
+
+```{r}
+# corn plant hopper damage rating
+hopper_df <- 
+  insect_raw %>%
+  select(FarmID, `Collection Date`, Province, Municipality, `Crop Stage`, Treatment, `Corn Type`, Variety, contains("Corn Plant Hopper - Damage Rating")) %>%
+  filter(Municipality == "Alangalang")
+
+# convert date format
+hopper_df$collect_date <- 
+  as.Date(hopper_df$`Collection Date`, "%B %d, %Y")
+
+hopper_dmg <-
+  hopper_df %>% 
+  mutate(Year = year(collect_date), Month = month(collect_date))
+
+# merged with monthly average weather parameters
+classification_dmg <- function(x) {ordered(x, levels = c("No", "Light", "Moderate", "Severe", "High"))}
+
+
+rank_rating <- c(1, 3, 5, 7, 9)
+names(rank_rating) <- c("No", "Light", "Moderate", "Severe", "High")
+ranked_class <- rank(rank_rating)
+factor(rank_rating, ordered=TRUE)
+
+
+getmode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+hopper_joined <-
+  hopper_dmg %>% 
+  left_join(collection_weather_avg, by=c('Year', 'Month')) %>%
+  # mutate_at(c(9:28), as.factor) %>%
+  mutate(across(contains("Corn Plant Hopper - Damage Rating "), 
+         ~ case_when( . == 1 ~ "No",
+                      . == 3 ~ "Light",
+                      . == 5 ~ "Moderate",
+                      . == 7 ~ "Severe",
+                      . == 9 ~ "High"), 
+         .names="Class_Infest_{.col}")) %>%
+  mutate(across(contains("Class_Infest_Corn Plant Hopper - Damage Rating "), ~classification_dmg(.))) %>%
+  # get the modal observation rating
+   mutate(Mode_class_infest_hopper = getmode(c_across(contains("Class_Infest_Corn Plant Hopper - Damage Rating ")))) %>%
+  # create ranks column
+  mutate(Ranked_mode_classification = rank(Mode_class_infest_hopper))
+  
+```
+
+```{r}
+rank_mean_fn <- function(x) {ordered(x, levels = c("25_Below", "25_to_27", "27_Above"))}
+
+hopper_rank_df <-
+  hopper_joined |>
+  mutate(rank_mean_temp = case_when(mean_temp > 27 ~ "27_Above", 
+                                    mean_temp < 25 ~ "25_Below",
+                                    TRUE ~ "25_to_27"),
+         rank_mean_temp = rank_mean_fn(rank_mean_temp))
+
+# cor.test(as.numeric(hopper_rank_df$Mode_class_infest_hopper), as.numeric(hopper_rank_df$rank_mean_temp), method="kendall")
+```
+
+
+```{r}
+hopper_parsed <- 
+  hopper_joined %>% 
+  select(Municipality, collect_date, Year, Month, `Crop Stage`, Treatment, `Corn Type`, Variety, Mode_class_infest_hopper, mean_temp:median_humid) %>%
+  mutate(variety = case_when(str_detect(Variety, 'OPV') ~ "OPV White",
+                             str_detect(Variety, "\\b[MmAaCcHhOo]") ~ "Macho F1",
+                             str_detect(Variety, "^J") ~ "J505",
+                             TRUE ~ Variety)) %>% 
+  mutate_if(is.character, as.factor) %>%
+  select(-Variety)
+```
+
+
+```{r}
+# Create ranked columns
+hopper_ranked <-
+  hopper_parsed %>% 
+  mutate(rank_mode_class_infest_hopper = rank(Mode_class_infest_hopper),
+         rank_mean_temp = rank(mean_temp),
+         rank_mean_wind = rank(mean_wind),
+         rank_mean_humid = rank(mean_humid),
+         rank_mean_rain = rank(mean_rain),
+         rank_median_temp = rank(median_temp),
+         rank_median_wind = rank(median_wind),
+         rank_median_humid = rank(median_humid),
+         rank_median_rain = rank(median_rain))
+
+
+infest <- factor(hopper_ranked$Mode_class_infest_hopper, levels = c("No", "Light", "Moderate", "Severe", "High"))
+
+temp_par <- factor(hopper_rank_df$rank_mean_temp, levels = c("25_Below", "25_to_27", "27_Above"))
+
+cor(cbind(infest, temp_par), method="kendall", use="pairwise") 
+```
+
+
+```{r}
+summary(hopper_parsed)
+summary(hopper_parsed$Mode_class_infest_hopper)
+
+plot(hopper_parsed$Mode_class_infest_hopper, hopper_parsed$median_temp)
+
+hopper_parsed$variety %>% unique()
+hopper_parsed$`Corn Type` %>% unique()
+hopper_parsed %>% names()
+```
+
+```{r}
+hopper_parsed %>%
+  ggplot(aes(collect_date, median_temp)) +
+  geom_jitter(aes(color=Month), show.legend = FALSE) +
+  # geom_smooth(aes(color = Month), method="lm", se=FALSE) +
+  geom_smooth(aes(color = Month), method=lm, se = FALSE, color = "red", size=1.4) +
+  labs(x = "Collection Date (Year)", y = "Median temperature (C)") +
+  theme_classic()
+```
+
+```{r}
+hopper_parsed %>%
+  ggplot(aes(mean_temp)) +
+  geom_histogram(drop=FALSE)
+```
+
+```{r}
+hopper_parsed %>%
+  select(where(is.ordered)) %>%
+  names()
+
+hopper_parsed %>%
+  ggplot(aes(collect_date, median_rain)) +
+  geom_smooth(aes(color = Month), method="lm", se=FALSE) +
+  geom_smooth(method=lm, se = FALSE, color = "red", size=1.4) +
+  geom_jitter(aes(color=Month), show.legend = FALSE) +
+  labs(x = "Collection Date (Year)", y = "Median rain (mm)")
+```
+
+```{r}
+hopper_joined %>%
+  ggplot(aes(median_temp)) +
+  geom_density()
+
+hopper_joined %>%
+  ggplot(aes(median_rain, Year)) +
+  geom_line()
+
+hopper_joined %>%
+  ggplot(aes(median_wind)) +
+  geom_density()
+
+hopper_joined %>%
+  ggplot(aes(median_humid)) +
+  geom_density()
+```
+
+
+
+```{r}
+library(nortest)
+
+# Normality tests
+ks.test(hopper_joined$median_temp, 'pnorm')
+ks.test(hopper_joined$median_wind, 'pnorm')
+ks.test(hopper_joined$median_humid, 'pnorm')
+ks.test(hopper_joined$median_rain, 'pnorm')
+
+ad.test(hopper_joined$median_temp)
+ad.test(hopper_joined$median_wind)
+ad.test(hopper_joined$median_humid)
+ad.test(hopper_joined$median_rain)
+
+
+shapiro.test(hopper_joined$median_temp)
+shapiro.test(hopper_joined$median_wind)
+shapiro.test(hopper_joined$median_humid)
+shapiro.test(hopper_joined$median_rain)
+
+ggqqplot(hopper_rec$median_temp)
+```
+
+```{r}
+plot(hopper_parsed$Mode_class_infest_hopper, hopper_parsed$median_temp)
+
+hopper_parsed %>%
+  ggplot(aes(Mode_class_infest_hopper, mean_temp)) +
+  geom_boxplot() +
+  scale_x_discrete("Plant hopper severity", drop=FALSE) +
+  theme_classic()
+```
+
+```{r}
+hopper_parsed %>%
+  ggplot(aes(Mode_class_infest_hopper, mean_humid)) +
+  geom_boxplot() +
+  scale_x_discrete("Plant hopper severity", drop=FALSE) +
+  theme_classic()
+```
+
+```{r}
+hopper_df <- recipe(Mode_class_infest_hopper ~ ., data = hopper_parsed) %>%
+  step_ordinalscore(Mode_class_infest_hopper) %>%
+  step_integer(mean_temp:median_humid) %>% 
+  step_best_normalize(mean_temp:median_humid) %>% 
+  prep() %>% 
+  bake(new_data = NULL)
+  # step_normalize(all_numeric_predictors()) %>%
+  # step_factor2string(all_factor_predictors()) %>% prep() %>% bake(new_data = NULL)
+
+hopper_df %>%
+  ggplot(aes(mean_temp)) +
+  geom_density()
+
+hopper_df %>%
+  ggplot(aes(mean_rain)) +
+  geom_density()
+
+hopper_df %>%
+  ggplot(aes(mean_humid)) +
+  geom_density()
+
+hopper_df %>%
+  ggplot(aes(mean_wind)) +
+  geom_density()
+```
+
+
+```{r}
+hopper_df %>% glimpse()
+# cor(method = c("person", "kendall", "spearman"))
+
+unclass(hopper_joined$Mode_class_infest_hopper)
+attr(hopper_joined$Mode_class_infest_hopper, "levels")
+
+hopper_df %>% select(!(Municipality:Month)) %>% cor()
+```
+
+
+
+
+
+
+
+
+
+

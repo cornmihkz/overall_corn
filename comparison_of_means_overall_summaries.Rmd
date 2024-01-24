@@ -1,0 +1,200 @@
+---
+title: "comparison_of_means"
+author: "Mihkail Cornell"
+date: "2023-12-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("nortest")
+library("rcompanion")
+library("moments")
+library("dplyr")
+library("datawizard")
+```
+
+
+```Pests```
+```{r}
+insects_stats_df <-
+  insects_summary_overall %>%
+    ungroup() %>%
+    select(Province, Treatment, `Corn Type`, contains("percent_incidence_"))
+
+
+insects_means_province <-
+  insects_stats_df %>%
+  select(Province, contains("percent_incidence_")) %>%
+  group_by(Province) %>%
+  summarize(mean_borer = mean(percent_incidence_borer),
+            mean_semilooper = mean(percent_incidence_semilooper),
+            mean_earworm = mean(percent_incidence_earworm),
+            mean_cutworm = mean(percent_incidence_cutworm),
+            mean_armyworm = mean(percent_incidence_armyworm),
+            mean_aphids = mean(percent_incidence_aphids),
+            mean_hopper = mean(percent_incidence_hopper),
+            mean_faw = mean(percent_incidence_faw)
+            ) %>%
+  ungroup() %>%
+  pivot_longer(-Province, names_to = "pests", values_to = "percent_incidence_means")
+
+insects_means_fertilizer <-
+  insects_stats_df %>%
+  select(Treatment, contains("percent_incidence_")) %>%
+  group_by(Treatment) %>%
+  summarize(mean_borer = mean(percent_incidence_borer),
+            mean_semilooper = mean(percent_incidence_semilooper),
+            mean_earworm = mean(percent_incidence_earworm),
+            mean_cutworm = mean(percent_incidence_cutworm),
+            mean_armyworm = mean(percent_incidence_armyworm),
+            mean_aphids = mean(percent_incidence_aphids),
+            mean_hopper = mean(percent_incidence_hopper),
+            mean_faw = mean(percent_incidence_faw)
+            ) %>%
+  ungroup() %>%
+  pivot_longer(-Treatment, names_to = "pests", values_to = "percent_incidence_means")
+
+
+insects_means_corntype <-
+  insects_stats_df %>%
+  select(`Corn Type`, contains("percent_incidence_")) %>%
+  group_by(`Corn Type`) %>%
+  summarize(mean_borer = mean(percent_incidence_borer),
+            mean_semilooper = mean(percent_incidence_semilooper),
+            mean_earworm = mean(percent_incidence_earworm),
+            mean_cutworm = mean(percent_incidence_cutworm),
+            mean_armyworm = mean(percent_incidence_armyworm),
+            mean_aphids = mean(percent_incidence_aphids),
+            mean_hopper = mean(percent_incidence_hopper),
+            mean_faw = mean(percent_incidence_faw)
+            ) %>%
+  ungroup() %>%
+  pivot_longer(-`Corn Type`, names_to = "pests", values_to = "percent_incidence_means")
+
+
+
+
+
+library("MASS")
+library("DescTools")
+library("stats")
+
+# log to normalize diseases province ####
+insects_means_province$log_incidence <- 
+  log(insects_means_province$percent_incidence_means)
+
+shapiro.test_insects_means_province <- 
+  shapiro.test(insects_means_province$log_incidence)
+
+leveneTests_insects_means_province <- 
+  leveneTest(log_incidence ~ Province, insects_means_province)
+
+aov_insects_means_province <- aov(log_incidence ~ Province, insects_means_province)
+summary(aov_insects_means_province)
+
+
+
+
+shapiro.test(log10(insects_means_fertilizer$percent_incidence_means))
+
+
+shapiro.test(log10(insects_means_corntype$percent_incidence_means))
+
+detach("package:DescTools", unload = TRUE)
+detach("package:MASS", unload = TRUE)
+detach("package:stats", unload = TRUE)
+```
+
+```Diseases```
+```{r}
+### Summary diseases ####
+diseases_stats_df <-
+  diseases_summary_overall %>%
+    ungroup() %>%
+    select(Province, Treatment, `Corn Type`, contains("percent_incidence_")) 
+
+diseases_means_province <-
+  diseases_stats_df %>%
+  select(Province, contains("percent_incidence_")) %>%
+  group_by(Province) %>%
+  summarize(mean_blsb = mean(percent_incidence_blsb),
+            mean_blight = mean(percent_incidence_blight),
+            mean_brown = mean(percent_incidence_brown),
+            mean_leaf = mean(percent_incidence_leaf),
+            mean_mildew = mean(percent_incidence_mildew),
+            mean_southrust = mean(percent_incidence_southrust),
+            mean_rust = mean(percent_incidence_rust),
+            mean_stalk = mean(percent_incidence_stalk)
+            ) %>%
+  ungroup() %>%
+  pivot_longer(-Province, names_to = "pests", values_to = "percent_incidence_means")
+
+diseases_means_fertilizer <-
+  diseases_stats_df %>%
+  select(Treatment, contains("percent_incidence_")) %>%
+  group_by(Treatment) %>%
+  summarize(mean_blsb = mean(percent_incidence_blsb),
+            mean_blight = mean(percent_incidence_blight),
+            mean_brown = mean(percent_incidence_brown),
+            mean_leaf = mean(percent_incidence_leaf),
+            mean_mildew = mean(percent_incidence_mildew),
+            mean_southrust = mean(percent_incidence_southrust),
+            mean_rust = mean(percent_incidence_rust),
+            mean_stalk = mean(percent_incidence_stalk)
+            ) %>%
+  ungroup() %>%
+  pivot_longer(-Treatment, names_to = "pests", values_to = "percent_incidence_means")
+
+
+diseases_means_corntype <-
+  diseases_stats_df %>%
+  select(`Corn Type`, contains("percent_incidence_")) %>%
+  group_by(`Corn Type`) %>%
+  summarize(mean_blsb = mean(percent_incidence_blsb),
+            mean_blight = mean(percent_incidence_blight),
+            mean_brown = mean(percent_incidence_brown),
+            mean_leaf = mean(percent_incidence_leaf),
+            mean_mildew = mean(percent_incidence_mildew),
+            mean_southrust = mean(percent_incidence_southrust),
+            mean_rust = mean(percent_incidence_rust),
+            mean_stalk = mean(percent_incidence_stalk)
+            ) %>%
+  ungroup() %>%
+  pivot_longer(-`Corn Type`, names_to = "pests", values_to = "percent_incidence_means")
+#####
+
+### AnOVa Diseases ####
+library("MASS")
+library("DescTools")
+library("stats")
+
+shapiro.test(log(diseases_means_province$percent_incidence_means))
+
+
+shapiro.test(log10(diseases_means_fertilizer$percent_incidence_means + 2))
+
+
+# Diseases and Corn Type is normal
+shapiro.test(diseases_means_corntype$percent_incidence_means)
+leveneTest(percent_incidence_means ~ `Corn Type`, diseases_means_corntype)
+
+
+t.test(percent_incidence_means ~ `Corn Type`, diseases_means_corntype)
+
+detach("package:MASS", unload = TRUE)
+detach("package:DescTools", unload = TRUE)
+detach("package:stats", unload = TRUE)
+
+#####
+```
+
+```{r}
+######## Pest Plots ##########
+
+
+                                  
+################################################
+
+```
+

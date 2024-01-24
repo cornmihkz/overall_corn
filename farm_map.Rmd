@@ -1,0 +1,30 @@
+---
+title: "farm_mapping"
+author: "Mihkail Cornell"
+date: "2023-12-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(sf)
+library(terra)
+library(dplyr)
+library(spData)
+
+farm_geo_sites
+```
+
+```{r}
+December = c(c(borer_monthly %>% filter(Month == 12)) %$% mean_temp.x,
+                c(borer_monthly %>% filter(Month == 12)) %$% monthly_incidence,
+                c(semilooper_monthly %>% filter(Month == 12)) %$% monthly_incidence,
+                c(cutworm_monthly %>% filter(Month == 12)) %$% monthly_incidence,
+                c(earworm_monthly %>% filter(Month == 12)) %$% monthly_incidence,
+                c(armyworm_monthly %>% filter(Month == 12)) %$% monthly_incidence,
+                c(hopper_monthly %>% filter(Month == 12)) %$% monthly_incidence,
+                c(aphids_monthly %>% filter(Month == 12)) %$% monthly_incidence,
+                c(faw_monthly %>% filter(Month == 12)) %$% monthly_incidence)
+```
+

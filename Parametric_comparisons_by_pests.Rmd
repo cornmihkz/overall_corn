@@ -1,0 +1,360 @@
+---
+title: "parametric comparisons by pests"
+author: "Mihkail Cornell"
+date: "2023-12-14"
+output: html_document
+---
+```{r}
+library("dplyr")
+library("datawizard")
+library("nortest")
+library("rcompanion")
+library("moments")
+```
+
+
+```Borer```
+```{r}
+# borer data for tests
+borer_mean_comparisons <-
+  insects_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_borer = mean(percent_incidence_borer))
+
+# borer Shapiro-Wilk Normality Test
+borer_normality_shapiro <- 
+  shapiro.test(borer_mean_comparisons$mean_incidence_borer)
+
+# borer province Levene's test for homogeneity of variance
+borer_levenes_province <- 
+  leveneTest(mean_incidence_borer ~ Province, borer_mean_comparisons)
+
+# borer Kruskal-Wallis Test non-homogeneous province means
+borer_kruskal_province <-
+  kruskal_fertilizer_borer <- kruskal.test(mean_incidence_borer ~ Province, borer_mean_comparisons)
+
+
+
+borer_levenes_fertilizer <- 
+  leveneTest(mean_incidence_borer ~ Treatment, borer_mean_comparisons)
+
+borer_fertilizer_means_aov <- 
+  aov(mean_incidence_borer ~ Treatment, borer_mean_comparisons)
+summary(borer_fertilizer_means_aov)
+
+
+
+# t-test borer
+borer_means_ttest <- t.test(mean_incidence_borer ~ `Corn Type`, borer_mean_comparisons)
+
+
+```
+
+```Semilooper```
+```{r}
+# semilooper data for tests
+semilooper_mean_comparisons <-
+  insects_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_semilooper = mean(percent_incidence_semilooper))
+
+# semilooper Shapiro-Wilk Normality Test
+semilooper_normality_shapiro <- 
+  shapiro.test(semilooper_mean_comparisons$mean_incidence_semilooper)
+
+# semilooper province Levene's test for homogeneity of variance
+semilooper_levenes_province <- 
+  leveneTest(mean_incidence_semilooper ~ Province, semilooper_mean_comparisons)
+
+# Anova semilooper by province
+semilooper_province_means_aov <- 
+  aov(mean_incidence_semilooper ~ Province, semilooper_mean_comparisons)
+summary(semilooper_province_means_aov)
+
+# semilooper province significant at 5%
+# TukeyHSD test and letters
+semilooper_province_means_aov_Tukey <- TukeyHSD(semilooper_province_means_aov)
+semilooper_province_means_aov_Letters <- multcompLetters4(semilooper_province_means_aov,
+                                                          semilooper_province_means_aov_Tukey)
+
+# Anova semilooper by fertilizer treatment rate
+semilooper_levenes_fertilizer <- 
+  leveneTest(mean_incidence_semilooper ~ Treatment, semilooper_mean_comparisons)
+
+semilooper_fertilizer_means_aov <- 
+  aov(mean_incidence_semilooper ~ Treatment, semilooper_mean_comparisons)
+summary(semilooper_fertilizer_means_aov)
+
+# t-test semilooper
+semilooper_means_ttest <- t.test(mean_incidence_semilooper ~ `Corn Type`, semilooper_mean_comparisons)
+
+
+```
+
+```Earworm```
+```{r}
+# earworm data for tests
+earworm_mean_comparisons <-
+  insects_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_earworm = mean(percent_incidence_earworm))
+write.csv(earworm_mean_comparisons, "Anova Data - Earworm.csv")
+
+# earworm Shapiro-Wilk Normality Test
+earworm_normality_shapiro <- 
+  shapiro.test(earworm_mean_comparisons$mean_incidence_earworm)
+
+# earworm province Levene's test for homogeneity of variance
+earworm_levenes_province <- 
+  leveneTest(mean_incidence_earworm ~ Province, earworm_mean_comparisons)
+
+# Anova earworm by province
+earworm_province_means_aov <- 
+  aov(mean_incidence_earworm ~ Province, earworm_mean_comparisons)
+summary(earworm_province_means_aov)
+
+# earworm province significant at 5%
+# TukeyHSD test and letters
+earworm_province_means_aov_Tukey <- TukeyHSD(earworm_province_means_aov)
+earworm_province_means_aov_Letters <- multcompLetters4(earworm_province_means_aov,
+                                                          earworm_province_means_aov_Tukey)
+
+# Anova earworm by fertilizer treatment rate
+earworm_levenes_fertilizer <- 
+  leveneTest(mean_incidence_earworm ~ Treatment, earworm_mean_comparisons)
+
+earworm_fertilizer_means_aov <- 
+  aov(mean_incidence_earworm ~ Treatment, earworm_mean_comparisons)
+summary(earworm_fertilizer_means_aov)
+
+# earworm non - normal data perform Mann-Whitney U Test 
+earworm_means_utest <- wilcox.test(mean_incidence_earworm ~ `Corn Type`, earworm_mean_comparisons)
+```
+
+```Cutworm```
+```{r}
+# cutworm data for tests
+cutworm_mean_comparisons <-
+  insects_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_cutworm = mean(percent_incidence_cutworm))
+
+# cutworm Shapiro-Wilk Normality Test
+cutworm_normality_shapiro <- 
+  shapiro.test(cutworm_mean_comparisons$mean_incidence_cutworm)
+
+# cutworm province Levene's test for homogeneity of variance
+cutworm_levenes_province <- 
+  leveneTest(mean_incidence_cutworm ~ Province, cutworm_mean_comparisons)
+
+# Anova cutworm by province
+cutworm_province_means_aov <- 
+  aov(mean_incidence_cutworm ~ Province, cutworm_mean_comparisons)
+summary(cutworm_province_means_aov)
+
+# cutworm province significant at 5%
+# TukeyHSD test and letters
+cutworm_province_means_aov_Tukey <- TukeyHSD(cutworm_province_means_aov)
+cutworm_province_means_aov_Letters <- multcompLetters4(cutworm_province_means_aov,
+                                                          cutworm_province_means_aov_Tukey)
+
+# Anova cutworm by fertilizer treatment rate
+cutworm_levenes_fertilizer <- 
+  leveneTest(mean_incidence_cutworm ~ Treatment, cutworm_mean_comparisons)
+
+cutworm_fertilizer_means_aov <- 
+  aov(mean_incidence_cutworm ~ Treatment, cutworm_mean_comparisons)
+summary(cutworm_fertilizer_means_aov)
+
+
+# cutworm non - normal data perform Mann-Whitney U Test 
+cutworm_means_utest <- wilcox.test(mean_incidence_cutworm ~ `Corn Type`, cutworm_mean_comparisons)
+
+
+```
+
+```Armyworm```
+```{r}
+# armyworm data for tests
+armyworm_mean_comparisons <-
+  insects_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_armyworm = mean(percent_incidence_armyworm))
+write.csv(armyworm_mean_comparisons, "Anova Data - Armyworm.csv")
+
+write.csv(faw_mean_comparisons, "Anova Data - FAW.csv")
+
+write.csv(blsb_mean_comparisons, "Anova Data - BLSB.csv")
+write.csv(mildew_mean_comparisons, "Anova Data - Downy Mildew.csv")
+write.csv(brown_mean_comparisons, "Anova Data - Brown Spot.csv")
+
+
+# armyworm Shapiro-Wilk Normality Test
+armyworm_normality_shapiro <- 
+  shapiro.test(armyworm_mean_comparisons$mean_incidence_armyworm)
+
+
+
+# armyworm province Levene's test for homogeneity of variance
+armyworm_levenes_province <- 
+  leveneTest(mean_incidence_armyworm ~ Province, armyworm_mean_comparisons)
+
+# armyworm Kruskal-Wallis Test non-homogeneous province means
+armyworm_kruskal_province <-
+  kruskal.test(mean_incidence_armyworm ~ Province, armyworm_mean_comparisons)
+
+# armyworm Kruskal-Wallis is significant
+# perform dunn's Test
+armyworm_dunnTest_province <-
+  dunnTest(mean_incidence_armyworm ~ Province,
+              data=armyworm_mean_comparisons,
+              method="bh")
+
+# armyworm province CLD list
+armyworm_cldList_province <- 
+  cldList(P.adj ~ Comparison,
+        data = armyworm_dunnTest_province$res)
+
+
+# Anova armyworm by fertilizer treatment rate
+armyworm_levenes_fertilizer <- 
+  leveneTest(mean_incidence_armyworm ~ Treatment, armyworm_mean_comparisons)
+
+armyworm_fertilizer_means_aov <- 
+  aov(mean_incidence_armyworm ~ Treatment, armyworm_mean_comparisons)
+summary(armyworm_fertilizer_means_aov)
+
+
+# armyworm t_test for Corn Types differences
+armyworm_means_ttest <- t.test(mean_incidence_armyworm ~ `Corn Type`, armyworm_mean_comparisons)
+
+
+```
+
+```Aphids```
+```{r}
+# aphids data for tests
+aphids_mean_comparisons <-
+  insects_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_aphids = mean(percent_incidence_aphids))
+
+# aphids Shapiro-Wilk Normality Test
+aphids_normality_shapiro <- 
+  shapiro.test(aphids_mean_comparisons$mean_incidence_aphids)
+
+# aphids province Levene's test for homogeneity of variance
+aphids_levenes_province <- 
+  leveneTest(mean_incidence_aphids ~ Province, aphids_mean_comparisons)
+
+# Anova aphids by province
+aphids_province_means_aov <- 
+  aov(mean_incidence_aphids ~ Province, aphids_mean_comparisons)
+summary(aphids_province_means_aov)
+
+# aphids province significant at 5%
+# TukeyHSD test and letters
+aphids_province_means_aov_Tukey <- TukeyHSD(aphids_province_means_aov)
+aphids_province_means_aov_Letters <- multcompLetters4(aphids_province_means_aov,
+                                                          aphids_province_means_aov_Tukey)
+
+# Anova aphids by fertilizer treatment rate
+aphids_levenes_fertilizer <- 
+  leveneTest(mean_incidence_aphids ~ Treatment, aphids_mean_comparisons)
+
+aphids_fertilizer_means_aov <- 
+  aov(mean_incidence_aphids ~ Treatment, aphids_mean_comparisons)
+summary(aphids_fertilizer_means_aov)
+
+
+# aphids non - normal data perform Mann-Whitney U Test 
+aphids_means_utest <- wilcox.test(mean_incidence_aphids ~ `Corn Type`, aphids_mean_comparisons)
+
+```
+
+```Hopper```
+```{r}
+# hopper data for tests
+hopper_mean_comparisons <-
+  insects_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_hopper = mean(percent_incidence_hopper))
+
+# hopper Shapiro-Wilk Normality Test
+hopper_normality_shapiro <- 
+  shapiro.test(hopper_mean_comparisons$mean_incidence_hopper)
+
+# hopper province Levene's test for homogeneity of variance
+hopper_levenes_province <- 
+  leveneTest(mean_incidence_hopper ~ Province, hopper_mean_comparisons)
+
+# hopper Kruskal-Wallis Test non-homogeneous province means
+hopper_kruskal_province <-
+  kruskal.test(mean_incidence_hopper ~ Province, hopper_mean_comparisons)
+
+# hopper Kruskal-Wallis is significant
+# perform dunn's Test
+hopper_dunnTest_province <-
+  dunnTest(mean_incidence_hopper ~ Province,
+              data=hopper_mean_comparisons,
+              method="bh")
+
+# hopper province CLD list
+hopper_cldList_province <- 
+  cldList(P.adj ~ Comparison,
+        data = hopper_dunnTest_province$res)
+
+# Anova hopper by fertilizer treatment rate
+hopper_levenes_fertilizer <- 
+  leveneTest(mean_incidence_hopper ~ Treatment, hopper_mean_comparisons)
+
+hopper_fertilizer_means_aov <- 
+  aov(mean_incidence_hopper ~ Treatment, hopper_mean_comparisons)
+summary(hopper_fertilizer_means_aov)
+
+
+# hopper non - normal data perform Mann-Whitney U Test 
+hopper_means_utest <- wilcox.test(mean_incidence_hopper ~ `Corn Type`, hopper_mean_comparisons)
+```
+
+```FAW```
+```{r}
+# faw data for tests
+faw_mean_comparisons <-
+  insects_stats_df %>%
+  group_by(Province, `Corn Type`, Treatment) %>%
+  summarise(mean_incidence_faw = mean(percent_incidence_faw))
+
+# faw Shapiro-Wilk Normality Test
+faw_normality_shapiro <- 
+  shapiro.test(faw_mean_comparisons$mean_incidence_faw)
+
+# faw province Levene's test for homogeneity of variance
+faw_levenes_province <- 
+  leveneTest(mean_incidence_faw ~ Province, faw_mean_comparisons)
+
+# Anova faw by province
+faw_province_means_aov <- 
+  aov(mean_incidence_faw ~ Province, faw_mean_comparisons)
+summary(faw_province_means_aov)
+
+# faw province significant at 5%
+# TukeyHSD test and letters
+faw_province_means_aov_Tukey <- TukeyHSD(faw_province_means_aov)
+faw_province_means_aov_Letters <- multcompLetters4(faw_province_means_aov,
+                                                          faw_province_means_aov_Tukey)
+
+# Anova faw by fertilizer treatment rate
+faw_levenes_fertilizer <- 
+  leveneTest(mean_incidence_faw ~ Treatment, faw_mean_comparisons)
+
+faw_fertilizer_means_aov <- 
+  aov(mean_incidence_faw ~ Treatment, faw_mean_comparisons)
+summary(faw_fertilizer_means_aov)
+
+
+# faw t_test for Corn Types differences
+faw_means_ttest <- t.test(mean_incidence_faw ~ `Corn Type`, faw_mean_comparisons)
+
+
+```

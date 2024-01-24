@@ -1,0 +1,34 @@
+---
+title: "farm profiles"
+author: "Mihkail Cornell"
+date: "2023-07-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidymodels)
+library(tidyr)
+library(tidyverse)
+library(stringr)
+library(dplyr)
+
+farm_profiles <- read_csv("Farm_Profiles.csv")
+```
+
+```{r}
+unique(farm_profiles$`Cropping Pattern`) 
+str_replace_all(farm_profiles$`Cropping Pattern`, pattern=" ", repl="")
+```
+```{r}
+farm_profiles$`Inorganic Fertilizer`
+
+```
+
+```{r}
+unique(farm_profiles$Variety)
+```
+```{r}
+unique(farm_profiles$`Source of Planting Materials`)
+```
+

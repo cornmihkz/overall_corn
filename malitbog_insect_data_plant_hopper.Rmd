@@ -1,0 +1,105 @@
+---
+title: "malitbog_insect_data_plant_hopper"
+author: "Mihkail Cornell"
+date: "2023-09-04"
+output: html_document
+---
+
+```{r}
+hopper_df_malitbog <- 
+  insect_raw %>%
+  select(FarmID, `Collection Date`, Province, Municipality, `Crop Stage`, Treatment, `Corn Type`, Variety, contains("Corn Plant Hopper - Damage Rating")) %>%
+  filter(Municipality == "Malitbog")
+
+# convert date format
+hopper_df_malitbog$collect_date <- 
+  as.Date(hopper_df_malitbog$`Collection Date`, "%B %d, %Y")
+
+hopper_dmg_malitbog <-
+  hopper_df_malitbog %>% 
+  mutate(Year = year(collect_date), Month = month(collect_date))
+
+# merged with monthly average weather parameters
+classification_dmg <- function(x) {ordered(x, levels = c("No", "Light", "Moderate", "Severe", "High"))}
+
+
+rank_rating <- c(1, 3, 5, 7, 9)
+names(rank_rating) <- c("No", "Light", "Moderate", "Severe", "High")
+ranked_class <- rank(rank_rating)
+factor(rank_rating, ordered=TRUE)
+
+
+getmode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+hopper_joined_malitbog <-
+  hopper_dmg_malitbog %>% 
+  left_join(monthly_averages, by=c('Year', 'Month')) %>%
+  # mutate_at(c(9:28), as.factor) %>%
+  mutate(across(contains("Corn Plant Hopper - Damage Rating "), 
+         ~ case_when( . == 1 ~ "No",
+                      . == 3 ~ "Light",
+                      . == 5 ~ "Moderate",
+                      . == 7 ~ "Severe",
+                      . == 9 ~ "High"), 
+         .names="Class_Infest_{.col}")) %>%
+  mutate(across(contains("Class_Infest_Corn Plant Hopper - Damage Rating "), ~classification_dmg(.))) %>%
+  # get the modal observation rating
+   mutate(Mode_class_infest_hopper = getmode(c_across(contains("Class_Infest_Corn Plant Hopper - Damage Rating ")))) %>%
+  # create ranks column
+  mutate(Ranked_mode_classification = rank(Mode_class_infest_hopper))
+
+hopper_joined_malitbog$Variety %>% unique()
+```
+
+```{r}
+hopper_malitbog_parsed <-
+    hopper_joined_malitbog %>% 
+    select(Municipality, 
+           collect_date, 
+           Year, 
+           Month, 
+           `Crop Stage`, 
+           Treatment, 
+           `Corn Type`, 
+           Variety, 
+           Mode_class_infest_hopper, mean_temp:median_humid) %>%
+    mutate(variety = case_when(str_detect(Variety, "\\b(OPV)") ~ "Cn 224 OPV White",
+                               str_detect(Variety, "^[MmAaCcHhOo]") ~ "Macho F1",
+                               str_detect(Variety, "(F[IiLlIiPpIiNnAa_ ]*)703") ~ "Filipina 703-HY",
+                               str_detect(Variety, "^(J[-_]*)") ~ "J505",
+                               str_detect(Variety, "^([IPB_VAR_6])&") ~ "IPB_VAR_6",
+                               str_detect(Variety, "^(B9899G)&") ~ "B9899G",
+                               str_detect(Variety, "^(B118G)") ~ "B118G-Hybrid Yellow",
+                               str_detect(Variety, "(([FIi])[l ĺ]*ipina 802|[FfIiLlIiPpIiNnAa][_\\- ]802)") ~ "Filipina 802-HW",
+                               str_detect(Variety, "Supreme 5150-H[YW]") ~ "Supreme 5150-HW",
+                               str_detect(Variety, "^(Super 999)") ~ "Super 999-HY",
+                               TRUE ~ Variety)) %>% 
+    mutate_if(is.character, as.factor) %>%
+    select(-Variety)
+
+hopper_malitbog_parsed$variety %>% unique()
+```
+
+```{r}
+rank_mean_fn <- function(x) {ordered(x, levels = c("25_Below", "25_to_27", "27_Above"))}
+
+hopper_malitbog_rank_df <-
+  hopper_joined_malitbog |>
+  mutate(rank_mean_temp = case_when(mean_temp > 27 ~ "27_Above", 
+                                    mean_temp < 25 ~ "25_Below",
+                                    TRUE ~ "25_to_27"),
+         rank_mean_temp = rank_mean_fn(rank_mean_temp))
+```
+
+
+```{r}
+cor.test(as.numeric(hopper_malitbog_rank_df$Mode_class_infest_hopper), as.numeric(hopper_malitbog_rank_df$rank_mean_temp), method="kendall")
+```
+
+
+
+
+

@@ -1,0 +1,988 @@
+---
+title: "insects_forecast"
+author: "Mihkail Cornell"
+date: "2023-11-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+library(fpp2)
+library(ggplot2)
+library(dplyr)
+library(stats)
+library(ggpubr)
+library(lubridate)
+library(tidymodels)
+library(scales)
+library(forecast)
+library(tsibble)
+library(tidyverse)
+
+
+library(patchwork) # To display 2 charts together
+library(hrbrthemes)
+
+insects_summary_overall <- read_csv("../insect_pests_and_diseases/pests_summary_overall.csv")
+```
+
+```By Corn Type Top 3 Pests```
+```{r}
+pests_labels <- c("percent_incidence_earworm" = "Earworm",
+                  "percent_incidence_armyworm" = "Armyworm",
+                  "percent_incidence_faw" = "FAW"
+                  )
+pest_fills <- c(
+            "percent_incidence_earworm" ="deepskyblue2",
+            "percent_incidence_armyworm" = "chartreuse3",
+            "percent_incidence_faw" = "chocolate2"
+            )
+
+
+# pest_fills <- c(
+#             "Earworm" ="deepskyblue2",
+#             "Armyworm" = "chartreuse3",
+#             "FAW" = "chocolate2"
+#             )
+
+
+
+summary_pests_corntype_corntype_df <-
+  insects_summary_overall %>%
+  select(`Corn Type`, 
+         percent_incidence_faw, 
+         percent_incidence_earworm, 
+         percent_incidence_armyworm) %>%
+  pivot_longer(-c(`Corn Type`), 
+               names_to = "insects", 
+               values_to = "incidences") %>%
+  group_by(`Corn Type`, insects) %>%
+  summarise(mean_pest_incidences = mean(incidences))
+
+
+
+
+summary_pests_corntype_corntype_df %>%
+  ggplot(aes(fct_reorder(insects,
+                         mean_pest_incidences,
+                         .desc = TRUE), 
+             mean_pest_incidences,
+             fill = insects)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = round(mean_pest_incidences, 2)),
+                size = 5, color = "black", nudge_y = -3) +
+  facet_grid(~ `Corn Type`, 
+             scales = "free_x", 
+             # space = "free_x",
+             switch = "x") +
+  scale_x_discrete(labels = pests_labels) +
+  scale_fill_manual(values = pest_fills) +
+  labs(title = "Pest Incidences on GM and Non-GM Corn Types",
+       x = NULL,
+       y = "Percent Incidences") +
+  theme(
+          plot.title.position = "panel",
+          plot.title = element_text(margin = margin(b=12),
+                                                    hjust = 0.5,
+                                                    vjust = -78,
+                                    size = plot_title_size + 2),
+          plot.margin = margin(t = -10, l = 10, b = 30),
+          aspect.ratio = 1,
+          strip.background = element_blank(),
+          strip.placement = "outside",
+          axis.text = element_text(size = 12,
+                                   color = "black",
+                                   face = "plain",
+                                   vjust = -0.75,
+                                   margin = margin(b = 10)), 
+          axis.title = element_text(size = 16),
+          strip.text.x =  element_text(size = 14)
+          )
+ggsave("../Graphs_for_TERMINAL_Report/Summary of Pest Incidences on GM and Non-GM Corn.png", 
+       dpi = 150, height = 5, width = 8)
+```
+
+
+``` Heatmap Corn Type - Crop Stage```
+```{r}
+pest_colors <- c(
+            "percent_incidence_earworm" ="deepskyblue2",
+            "percent_incidence_armyworm" = "chartreuse3",
+            "percent_incidence_faw" = "chocolate2"
+            )
+
+pests <- c("percent_incidence_earworm",
+            "percent_incidence_armyworm",
+            "percent_incidence_faw"
+            )
+
+color_pests <- c("deepskyblue2", "chartreuse3", "chocolate2")
+
+growth_stage <- c("Emergence", "Single Leaf", "Seedling (3 - 4 Leaves)",
+                  "Early Whorl", "Mid Whorl", "Late Whorl",
+                  "Tasseling", "Silking", "Maturity")
+
+summary_pests_province_corntype_df <-
+  insects_summary_overall %>%
+  select(`Crop Stage`, `Corn Type`, 
+         percent_incidence_faw, 
+         percent_incidence_earworm, 
+         percent_incidence_armyworm) %>%
+  pivot_longer(-c(`Crop Stage`, `Corn Type`), 
+               names_to = "insects", 
+               values_to = "incidences") %>%
+  group_by(`Crop Stage`, `Corn Type`, insects) %>%
+  summarise(mean_pest_incidences = mean(incidences))
+
+
+
+# faw
+summary_pests_province_corntype_df %>%
+  filter(insects == "percent_incidence_faw",
+         `Crop Stage` != "Emergence") %>%
+  ggplot(aes(x = factor(`Crop Stage`, level = growth_stage), 
+             y = factor(`Corn Type`, level = c("Non - GM Corn", "GM CORN")),
+             fill = mean_pest_incidences,
+             group = insects)) + 
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "chocolate2") +
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+  geom_text(aes(label = round(mean_pest_incidences, 2)), 
+            color = "black", size = 5) +
+  labs(x = "Crop Stages",
+       y = "Corn Types",
+       fill = "FAW Mean \nPercent Incidence",
+       title = "Heatmap of FAW Percent Incidence on Corn Types and Crop Stages") +
+  theme(
+        plot.margin = unit(c(0, 0, 2, 1), "cm"),
+        plot.title.position = "panel",
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(margin = margin(b = -20),
+                                  hjust = 0.5,
+                                  vjust = -75,
+                                  size = 20),
+        axis.title = element_text(size = 14,
+                                  vjust = -1.8,
+                                  margin = margin(t = 25, b = 15)),
+        axis.text = element_text(color = "black",
+                                 face = "plain",
+                                 vjust = -0.75,
+                                 size = 9,
+                                 margin = margin(b = 8)),
+        axis.ticks.length=unit(.25, "cm")
+  )
+ggsave("Corn Types and Crop Stage Heat map FAW.png", dpi = 150, width = 10)
+
+
+# earworm
+summary_pests_province_corntype_df %>%
+  filter(insects == "percent_incidence_earworm",
+         `Crop Stage` != "Emergence") %>%
+  ggplot(aes(x = factor(`Crop Stage`, level = growth_stage), 
+             y = factor(`Corn Type`, level = c("Non - GM Corn", "GM CORN")),
+             fill = mean_pest_incidences,
+             group = insects)) + 
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "deepskyblue2") +
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+  geom_text(aes(label = round(mean_pest_incidences, 2)), 
+            color = "black", size = 5) +
+  labs(x = "Crop Stages",
+       y = "Corn Types",
+       fill = "Earworm Mean \nPercent Incidence",
+       title = "Heatmap of Earworm Percent Incidence on Corn Types and Crop Stages") +
+  theme(
+        plot.margin = unit(c(0, 0, 2, 1), "cm"),
+        plot.title.position = "panel",
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(margin = margin(b = -20),
+                                  hjust = 0.5,
+                                  vjust = -75,
+                                  size = 20),
+        axis.title = element_text(size = 14,
+                                  vjust = -1.8,
+                                  margin = margin(t = 25, b = 15)),
+        axis.text = element_text(color = "black",
+                                 face = "plain",
+                                 vjust = -0.75,
+                                 size = 9,
+                                 margin = margin(b = 8)),
+        axis.ticks.length=unit(.25, "cm")
+  )
+ggsave("Corn Types and Crop Stage Heat map Earworm.png", dpi = 150, width = 10)
+
+
+# armyworm
+summary_pests_province_corntype_df %>%
+  filter(insects == "percent_incidence_armyworm",
+         `Crop Stage` != "Emergence") %>%
+  ggplot(aes(x = factor(`Crop Stage`, level = growth_stage), 
+             y = factor(`Corn Type`, level = c("Non - GM Corn", "GM CORN")),
+             fill = mean_pest_incidences,
+             group = insects)) + 
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "chartreuse3") +
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+  geom_text(aes(label = round(mean_pest_incidences, 2)), 
+            color = "black", size = 5) +
+  labs(x = "Crop Stages",
+       y = "Corn Types",
+       fill = "Armyworm Mean \nPercent Incidence",
+       title = "Heatmap of Armyworm Percent Incidence on Corn Types and Crop Stages") +
+  theme(
+        plot.margin = unit(c(0, 0, 2, 1), "cm"),
+        plot.title.position = "panel",
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(margin = margin(b = -20),
+                                  hjust = 0.5,
+                                  vjust = -75,
+                                  size = 20),
+        axis.title = element_text(size = 14,
+                                  vjust = -1.8,
+                                  margin = margin(t = 25, b = 15)),
+        axis.text = element_text(color = "black",
+                                 face = "plain",
+                                 vjust = -0.75,
+                                 size = 9,
+                                 margin = margin(b = 8)),
+        axis.ticks.length=unit(.25, "cm")
+  )
+ggsave("Corn Types and Crop Stage Heat map Armyworm.png", dpi = 150, width = 10)
+```
+
+
+```Plot for Monthly Humidity```
+```{r}
+monthly_pests_humidity_df <- read_csv("../insect_pests_and_diseases/top3_pests_mean_with_humidity.csv")
+
+monthly_pests_humidity_pivot <-
+  monthly_pests_humidity_df %>%
+  pivot_longer(c("earworm", "armyworm", "faw"), values_to = "incidence", names_to = "insects") %>%
+  mutate(time_period = paste(Year, Month, sep = "-"),
+         time_period = ym(time_period)) %>%
+  ungroup() %>%
+  select(-Year, -Month)
+
+month.breaks.vec <- c(as.Date("2020-06-01"),
+               seq(from = as.Date("2020-06-01"), to = as.Date("2023-07-01"),
+                 by = "month"),
+               as.Date("2023-07-01"))
+
+pest_colors <- c(
+            "earworm" ="deepskyblue2",
+            "armyworm" = "chartreuse3",
+            "faw" = "chocolate2"
+            )
+
+monthly_pests_humidity_pivot %>% 
+  ggplot(aes(x = time_period, 
+             y = incidence,
+             order = incidence)) +
+    scale_y_continuous(
+               breaks = seq(0, 135, 10),
+               sec.axis = sec_axis(~. , name = "Monthly Humidity")) +
+    geom_line(aes(time_period, 
+                  incidence, 
+                  color = insects),
+              linewidth = linewidth + 0.5,
+              position = position_dodge(1),
+              show.legend = FALSE) +
+    scale_x_date(date_labels = format("%b-%Y"),
+                 date_breaks = "1 month" ,
+                 breaks = month.breaks.vec) +
+    geom_line(aes(y = `humidity`,
+                  alpha = 0.9),
+                  linewidth = linewidth,
+                  show.legend = FALSE) +
+    geom_area(aes(fill = `humidity`),
+              alpha = 0.3,
+              show.legend = FALSE,
+              position = "identity",
+              fill = "gray") +
+    labs(y = "Percent Incidence",
+         x = "Cropping Months",
+         title = "Summary of Monthly Pest Incidences from May 2020 - Aug 2023",
+         caption = "*Monthly average humidity is in GRAY") +
+    scale_color_manual(values = color_pests) +
+    theme(
+          plot.title.position = "panel",
+          plot.title = element_text(margin = margin(t=12),
+                                    hjust = 0.5,
+                                    vjust = -100,
+                                    size = plot_title_size),
+          plot.margin = margin(t = -10, l = 10, b = 30),
+          plot.caption = element_text(hjust = 1),
+          panel.background = element_rect(fill = NA),
+          panel.grid.major = element_line(colour = "gray95"), 
+          axis.text.x = element_text(margin = margin(b = 10),
+                                     angle = 90, 
+                                     vjust = 0.5, 
+                                     size = axis_text_size),
+          axis.ticks = element_blank(),
+          axis.text.y = element_text(margin = margin(b = 5, l = 2),
+                                     vjust = 1, 
+                                     hjust = 1, 
+                                     size = axis_text_size),
+          axis.title = element_text(size = title_text_size, face="bold",
+                                    margin = margin(t = 10)),
+          axis.ticks.y = element_blank()
+          )
+ggsave("Summary of Monthly Pest Incidences and Mean Humidity from May 2020 - Aug 2023.png", 
+       dpi = 150, height = 5, width = 8)
+
+
+```
+
+
+```Plot for Monthly Temp```
+```{r setup, include=FALSE, fig.width = 12, fig.height = 7}
+monthly_pests <- read.csv("../overall_summary/insect_pests_monthly_percent_incidence_averages_with_temp.csv")
+
+color_pests <- c("incidence_faw" = "chocolate2", 
+                  "incidence_earworm"= "deepskyblue2", 
+                  "incidence_armyworm" =   "chartreuse3")
+# data
+monthly_pests_df <-
+  monthly_pests %>% 
+  select(-c(incidence_cutworm, 
+            incidence_hopper, 
+            incidence_borer , 
+            incidence_semilooper,
+            incidence_aphids))
+
+
+top_pests <- c("incidence_faw", "incidence_earworm", "incidence_armyworm")
+
+monthly_pest_df <- 
+  monthly_pests_df %>%
+  mutate(time_period = paste(Year, Month, sep = "-"),
+         time_period = ym(time_period)) %>%
+  ungroup() %>%
+  select(-Year, -Month, time_period, temperature, 
+         incidence_faw, incidence_earworm, incidence_armyworm) %>% 
+  pivot_longer(starts_with("incidence_"), names_to = "insects", values_to = "incidence") 
+
+
+monthly_pest_df  %>%
+    ggplot(aes(x = time_period, 
+               y = incidence,
+               fill = `temperature`)) +
+    scale_y_continuous(limits = c(0, 140),
+               breaks = seq(0, 135, 10),
+               sec.axis = sec_axis(~. , name = "Monthly Temperature")) +
+    geom_line(aes(time_period, 
+                  incidence, 
+                  color = insects),
+                  linewidth = linewidth + 0.2,
+                  position = position_dodge(1),
+              show.legend = FALSE) +
+    scale_x_date(date_labels = format("%b-%Y"),
+                 date_breaks = "1 month") +
+    geom_line(aes(y = `temperature`,
+                  alpha = 0.9),
+                  linewidth = linewidth,
+                  show.legend = FALSE) +
+    geom_area(alpha = 0.3,
+              show.legend = FALSE,
+              position = "identity",
+              fill = "gray") +
+    labs(y = "Percent Incidence",
+         x = "Cropping Months",
+         title = "Summary of Monthly Pest Incidences from May 2020 - Aug 2023",
+         caption = "*Monthly average temperature is in GRAY") +
+    scale_color_manual(values = color_pests) +
+    theme(
+          plot.title.position = "panel",
+          plot.title = element_text(margin = margin(t=12),
+                                                    hjust = 0.5,
+                                                    vjust = -95,
+                                    size = plot_title_size),
+          plot.margin = margin(t = -10, l = 10, b = 30),
+          plot.caption = element_text(hjust = 1),
+          panel.background = element_rect(fill = NA),
+          panel.grid.major = element_line(colour = "gray95"), 
+          axis.text.x = element_text(margin = margin(b = 10),
+                                     angle = 90, 
+                                     vjust = 2, 
+                                     hjust = 1, 
+                                     size = axis_text_size),
+          axis.text.y = element_text(margin = margin(b = 5, l = 2),
+                                     vjust = 1, 
+                                     hjust = 1, 
+                                     size = axis_text_size),
+          axis.title = element_text(size = title_text_size, face="bold",
+                                    margin = margin(t = 10)),
+          axis.ticks.y = element_blank()
+          )
+ggsave("Summary of Monthly Pest Incidences from May 2020 - Aug 2023.png", 
+       dpi = 150, height = 5, width = 8)
+
+# monthly_pest_df  %>%
+#     ggplot(aes(x = time_period, y = incidence)) +
+#     scale_y_continuous(limits = c(0, 140),
+#                breaks = seq(0, 135, 5),
+#                sec.axis = sec_axis(~. , name = "Monthly Temperature")) +
+#     geom_line(aes(time_period, incidence, color = insects),
+#                   linewidth = linewidth - 0.2,
+#                   position = position_dodge(1))
+
+```
+
+```By cropping season```
+```{r}
+crop_growth_stages_monthly <- c("Emergence", "Single Leaf", 
+                                "Seedling (3 - 4 Leaves)", 
+                                "Early Whorl", "Mid Whorl", 
+                                "Late Whorl", "Tasseling", 
+                                "Silking", "Maturity")
+
+# first cropping 2020
+insects_1stcrop_2020 <-
+  insects_ts_df %>%
+  filter(year(ymd(month)) == "2020") %>% 
+  group_by(month, `Crop Stage`) %>%
+  arrange(month, match(`Crop Stage`, crop_growth_stages_monthly))
+
+# 2nd cropping 2021
+insects_2ndcrop_2021_july <-
+  insects_ts_df %>%
+    filter(year(ymd(month)) == "2021",
+           month(ymd(month)) == 7, 
+           `Crop Stage` %in% c("Late Whorl", "Tasseling", 
+                                "Silking", "Maturity"))
+
+insects_2ndcrop_2021 <-
+  insects_ts_df %>%
+    filter(year(ymd(month)) == "2021", month(ymd(month)) %in% seq(1, 7)) %>% 
+    group_by(month, `Crop Stage`) %>%
+    ungroup() %>% 
+    arrange(month, match(`Crop Stage`, crop_growth_stages_monthly)) %>%
+  full_join(insects_2ndcrop_2021_july)
+
+
+
+# 3rd cropping 2021 - 2022
+insects_3rdcrop_2021_july <-
+  insects_ts_df %>%
+    filter(year(ymd(month)) == "2021",
+           month(ymd(month)) == 7, 
+           `Crop Stage` %in% c("Single Leaf", 
+                                "Seedling (3 - 4 Leaves)", 
+                                "Early Whorl", "Mid Whorl"))
+insects_3rdcrop_2022_january <-
+  insects_ts_df %>%
+    filter(year(ymd(month)) == "2022" & month(ymd(month)) == 1)
+
+insects_3rdcrop_2021 <-
+  insects_ts_df %>%
+    filter(year(ymd(month)) == "2021" & month(ymd(month)) %in% seq(7, 9)) %>% 
+    group_by(month, `Crop Stage`) %>%
+    arrange(month, match(`Crop Stage`, crop_growth_stages_monthly)) %>%
+    full_join(insects_3rdcrop_2021_july) %>%
+    full_join(insects_3rdcrop_2022_january)
+
+
+
+# 4th cropping 2022
+insects_4thcrop_2022_may <-
+  insects_ts_df %>%
+    filter(year(ymd(month)) == "2022",
+           month(ymd(month)) == 5, 
+           `Crop Stage` %in% c("Late Whorl", "Tasseling", 
+                                "Silking", "Maturity"))
+
+insects_4thcrop_2022 <-
+  insects_ts_df %>%
+    filter(year(ymd(month)) == "2022", month(ymd(month)) %in% seq(2, 4)) %>% 
+    group_by(month, `Crop Stage`) %>%
+    arrange(month, match(`Crop Stage`, crop_growth_stages_monthly)) %>%
+  full_join(insects_4thcrop_2022_may)
+
+
+
+# 5th cropping 2022
+insects_5thcrop_2022_may <-
+  insects_ts_df %>%
+    filter(year(ymd(month)) == "2022",
+           month(ymd(month)) %in% c(4, 5),
+           `Crop Stage` %in% c("Single Leaf", 
+                                "Seedling (3 - 4 Leaves)", 
+                                "Early Whorl", "Mid Whorl"))
+
+insects_5thcrop_january <-
+  insects_ts_df %>%
+     filter(year(ymd(month)) == "2023",
+            month(ymd(month)) %in% c(1, 2, 3), 
+           `Crop Stage` %in% c("Late Whorl", "Tasseling", 
+                                "Silking", "Maturity"))
+
+insects_5thcrop_2022 <-
+  insects_5thcrop_2022_may %>% 
+  full_join(
+    insects_ts_df %>%
+        filter(
+        year(ymd(month)) == "2022", 
+        month(ymd(month)) %in% seq(6, 12)) %>% 
+        group_by(month, `Crop Stage`) %>%
+        arrange(month, match(`Crop Stage`, crop_growth_stages_monthly))) %>%
+  full_join(insects_5thcrop_january)
+
+
+
+
+
+
+
+# 6th cropping 2023
+insects_6thcrop_february <-
+  insects_ts_df %>%
+    filter(year(ymd(month)) == "2023",
+           month(ymd(month)) %in% c(2, 3), 
+           `Crop Stage` %in% c("Single Leaf", 
+                                "Seedling (3 - 4 Leaves)", 
+                                "Early Whorl", "Mid Whorl"))
+
+
+insects_6thcrop <-
+  insects_ts_df %>%
+    filter(year(ymd(month)) == "2023", 
+           month(ymd(month)) %in% seq(4, 12)) %>% 
+    group_by(month, `Crop Stage`) %>%
+    arrange(month, match(`Crop Stage`, crop_growth_stages_monthly)) %>%
+    full_join(insects_6thcrop_february)
+```
+
+```{r setup, include=FALSE, fig.width = 12, fig.height = 7}
+
+# data
+monthly_pests
+
+
+monthly_pest_df <- 
+  monthly_pests %>%
+  mutate(time_period = paste(Year, Month, sep = "-")) %>%
+  select(-Year, -Month) %>%
+  pivot_longer(starts_with("incidence_"), names_to = "insects", values_to = "incidence")
+
+
+monthly_temp_plot <-
+  monthly_pest_df %>%
+  ggplot(aes(x = time_period, 
+             y = insects, 
+             group = insects)) +
+  geom_area(aes(y = temperature), 
+            stat = "identity", 
+            alpha = 0.2,
+            show.legend = FALSE) 
+
+
+ggplot() +
+  geom_line(data = insects_average_df_monthly_aes,
+             aes(month, monthly_incidence, color = pest_incidence),
+             linewidth = line_size) +
+  scale_x_date(date_labels = format("%b-%Y"),
+               date_breaks = "1 month") +
+  scale_color_manual(values = pest_colors, labels = pests) +
+  geom_line(linewidth = linewidth - 0.2,
+            position = position_dodge(1)) +
+  # scale_x_discrete(limits = month,
+  #                  labels = month) +
+  scale_y_continuous(limits = c(0, 35), 
+                     breaks = c(seq(0, 20, by = 5)),
+                     sec.axis = sec_axis(~., 
+                                         name = "Monthly Temperature")) +
+  labs(y = "Percent Incidence",
+       x = "Cropping Months",
+       title = "Summary of Monthly Pest Incidences from May 2020 - Aug 2023") +
+  theme(axis.text.x = element_text(angle = 35, 
+                                   vjust = 1, 
+                                   hjust = 1, 
+                                   size = 8),
+        axis.title = element_text(size = 11, face="bold")) +
+  scale_color_brewer(palette = "Paired") +
+  theme(plot.title.position = "panel",
+        plot.title = element_text(margin = margin(t=5, b=15),
+                                  hjust = 0.5,
+                                  vjust = -133),
+        plot.margin = margin(t = -10, l = 10, b = 20))
+ggsave("Summary of Monthly Pest Incidences from May 2020 - Aug 2023.png", dpi = plot_dpi, height = plot_height)
+```
+
+```{r setup, include=FALSE, fig.width = 8, fig.height = 5}
+
+borer_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_borer) %>%
+  ggplot(aes(collect_date, incidence_borer)) +
+  geom_smooth()
+
+
+borer_ts_df <- borer_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_borer) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_borer, `Crop Stage`, month = floor_date(Date, "month")) %>%
+  group_by(month, `Crop Stage`) %>%
+  summarise(borer_monthly_average_incidence = mean(incidence_borer)) 
+
+borer_ts_df <-
+  borer_ts_df %>% 
+  replace(is.na(borer_ts_df), mean(borer_ts_df$borer_monthly_average_incidence, na.rm = TRUE))
+
+
+semilooper_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_semilooper) %>%
+  ggplot(aes(collect_date, incidence_semilooper)) +
+  geom_smooth()
+
+
+semilooper_ts_df <- semilooper_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_semilooper) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_semilooper, `Crop Stage`, month = floor_date(Date, "month")) %>%
+  group_by(month, `Crop Stage`) %>%
+  summarise(semilooper_monthly_average_incidence = mean(incidence_semilooper)) 
+
+semilooper_ts_df <-
+  semilooper_ts_df %>% 
+  replace(is.na(semilooper_ts_df), 
+          mean(semilooper_ts_df$semilooper_monthly_average_incidence, na.rm = TRUE))
+
+hopper_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_hopper) %>%
+  ggplot(aes(collect_date, incidence_hopper)) +
+  geom_smooth()
+
+
+hopper_ts_df <- hopper_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_hopper) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_hopper, `Crop Stage`, month = floor_date(Date, "month")) %>%
+  group_by(month, `Crop Stage`) %>%
+  summarise(hopper_monthly_average_incidence = mean(incidence_hopper)) 
+
+hopper_ts_df <-
+  hopper_ts_df %>% 
+  replace(is.na(hopper_ts_df), mean(hopper_ts_df$hopper_monthly_average_incidence, na.rm = TRUE))
+
+earworm_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_earworm) %>%
+  ggplot(aes(collect_date, incidence_earworm)) +
+  geom_smooth()
+
+
+earworm_ts_df <- earworm_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_earworm) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_earworm, `Crop Stage`, month = floor_date(Date, "month")) %>%
+  group_by(month, `Crop Stage`) %>%
+  summarise(earworm_monthly_average_incidence = mean(incidence_earworm)) 
+
+earworm_ts_df <-
+  earworm_ts_df %>% 
+  replace(is.na(earworm_ts_df), mean(earworm_ts_df$earworm_monthly_average_incidence, na.rm = TRUE))
+
+cutworm_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_cutworm) %>%
+  ggplot(aes(collect_date, incidence_cutworm)) +
+  geom_smooth()
+
+
+cutworm_ts_df <- cutworm_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_cutworm) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_cutworm, `Crop Stage`, month = floor_date(Date, "month")) %>%
+  group_by(month, `Crop Stage`) %>%
+  summarise(cutworm_monthly_average_incidence = mean(incidence_cutworm)) 
+
+cutworm_ts_df <-
+  cutworm_ts_df %>% 
+  replace(is.na(cutworm_ts_df), mean(cutworm_ts_df$cutworm_monthly_average_incidence, na.rm = TRUE))
+
+
+armyworm_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_armyworm) %>%
+  ggplot(aes(collect_date, incidence_armyworm)) +
+  geom_smooth()
+
+
+armyworm_ts_df <- armyworm_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_armyworm) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_armyworm, `Crop Stage`, month = floor_date(Date, "month")) %>%
+  group_by(month, `Crop Stage`) %>%
+  summarise(armyworm_monthly_average_incidence = mean(incidence_armyworm)) 
+
+armyworm_ts_df <-
+  armyworm_ts_df %>% 
+  replace(is.na(armyworm_ts_df), mean(armyworm_ts_df$armyworm_monthly_average_incidence, na.rm = TRUE))
+
+aphids_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_aphids) %>%
+  ggplot(aes(collect_date, incidence_aphids)) +
+  geom_smooth()
+
+
+aphids_ts_df <- aphids_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_aphids) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_aphids, `Crop Stage`, month = floor_date(Date, "month")) %>%
+  group_by(month, `Crop Stage`) %>%
+  summarise(aphids_monthly_average_incidence = mean(incidence_aphids)) 
+
+aphids_ts_df <-
+  aphids_ts_df %>% 
+  replace(is.na(aphids_ts_df), mean(aphids_ts_df$aphids_monthly_average_incidence, na.rm = TRUE))
+
+faw_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_faw) %>%
+  ggplot(aes(collect_date, incidence_faw)) +
+  geom_smooth()
+
+
+faw_ts_df <- faw_joined_ev %>%
+  select(collect_date, `Crop Stage`, incidence_faw) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_faw, `Crop Stage`, month = floor_date(Date, "month")) %>%
+  group_by(month, `Crop Stage`) %>%
+  summarise(faw_monthly_average_incidence = mean(incidence_faw)) 
+
+faw_ts_df <-
+  faw_ts_df %>% 
+  replace(is.na(faw_ts_df), mean(faw_ts_df$faw_monthly_average_incidence, na.rm = TRUE))
+
+
+insects_ts_df <-
+  borer_ts_df %>%
+  full_join(semilooper_ts_df) %>%
+  full_join(hopper_ts_df) %>%
+  full_join(earworm_ts_df) %>%
+  full_join(cutworm_ts_df) %>%
+  full_join(armyworm_ts_df) %>%
+  full_join(aphids_ts_df) %>%
+  full_join(faw_ts_df)
+
+write.csv(insects_ts_df, "Time Series Pests Data.csv")
+
+```
+
+
+```Monthly averages```
+```{r}
+borer_joined_ev %>%
+  select(collect_date,  incidence_borer) %>%
+  ggplot(aes(collect_date, incidence_borer)) +
+  geom_smooth()
+
+
+borer_monthly_average_df <- borer_joined_ev %>%
+  select(collect_date,  incidence_borer) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_borer,  month = floor_date(Date, "month")) %>%
+  group_by(month) %>%
+  summarise(borer_monthly_average_incidence = mean(incidence_borer)) 
+
+borer_monthly_average_df <-
+  borer_monthly_average_df %>% 
+  replace(is.na(borer_monthly_average_df), mean(borer_monthly_average_df$borer_monthly_average_incidence, na.rm = TRUE))
+
+
+semilooper_joined_ev %>%
+  select(collect_date,  incidence_semilooper) %>%
+  ggplot(aes(collect_date, incidence_semilooper)) +
+  geom_smooth()
+
+
+semilooper_monthly_average_df <- semilooper_joined_ev %>%
+  select(collect_date,  incidence_semilooper) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_semilooper,  month = floor_date(Date, "month")) %>%
+  group_by(month) %>%
+  summarise(semilooper_monthly_average_incidence = mean(incidence_semilooper)) 
+
+semilooper_monthly_average_df <-
+  semilooper_monthly_average_df %>% 
+  replace(is.na(semilooper_monthly_average_df), 
+          mean(semilooper_monthly_average_df$semilooper_monthly_average_incidence, na.rm = TRUE))
+
+hopper_joined_ev %>%
+  select(collect_date,  incidence_hopper) %>%
+  ggplot(aes(collect_date, incidence_hopper)) +
+  geom_smooth()
+
+
+hopper_monthly_average_df <- hopper_joined_ev %>%
+  select(collect_date,  incidence_hopper) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_hopper,  month = floor_date(Date, "month")) %>%
+  group_by(month) %>%
+  summarise(hopper_monthly_average_incidence = mean(incidence_hopper)) 
+
+hopper_monthly_average_df <-
+  hopper_monthly_average_df %>% 
+  replace(is.na(hopper_monthly_average_df), mean(hopper_monthly_average_df$hopper_monthly_average_incidence, na.rm = TRUE))
+
+earworm_joined_ev %>%
+  select(collect_date,  incidence_earworm) %>%
+  ggplot(aes(collect_date, incidence_earworm)) +
+  geom_smooth()
+
+
+earworm_monthly_average_df <- earworm_joined_ev %>%
+  select(collect_date,  incidence_earworm) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_earworm,  month = floor_date(Date, "month")) %>%
+  group_by(month) %>%
+  summarise(earworm_monthly_average_incidence = mean(incidence_earworm)) 
+
+earworm_monthly_average_df <-
+  earworm_monthly_average_df %>% 
+  replace(is.na(earworm_monthly_average_df), mean(earworm_monthly_average_df$earworm_monthly_average_incidence, na.rm = TRUE))
+
+cutworm_joined_ev %>%
+  select(collect_date,  incidence_cutworm) %>%
+  ggplot(aes(collect_date, incidence_cutworm)) +
+  geom_smooth()
+
+
+cutworm_monthly_average_df <- cutworm_joined_ev %>%
+  select(collect_date,  incidence_cutworm) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_cutworm,  month = floor_date(Date, "month")) %>%
+  group_by(month) %>%
+  summarise(cutworm_monthly_average_incidence = mean(incidence_cutworm)) 
+
+cutworm_monthly_average_df <-
+  cutworm_monthly_average_df %>% 
+  replace(is.na(cutworm_monthly_average_df), mean(cutworm_monthly_average_df$cutworm_monthly_average_incidence, na.rm = TRUE))
+
+
+armyworm_joined_ev %>%
+  select(collect_date,  incidence_armyworm) %>%
+  ggplot(aes(collect_date, incidence_armyworm)) +
+  geom_smooth()
+
+
+armyworm_monthly_average_df <- armyworm_joined_ev %>%
+  select(collect_date,  incidence_armyworm) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_armyworm,  month = floor_date(Date, "month")) %>%
+  group_by(month) %>%
+  summarise(armyworm_monthly_average_incidence = mean(incidence_armyworm)) 
+
+armyworm_monthly_average_df <-
+  armyworm_monthly_average_df %>% 
+  replace(is.na(armyworm_monthly_average_df), mean(armyworm_monthly_average_df$armyworm_monthly_average_incidence, na.rm = TRUE))
+
+aphids_joined_ev %>%
+  select(collect_date,  incidence_aphids) %>%
+  ggplot(aes(collect_date, incidence_aphids)) +
+  geom_smooth()
+
+
+aphids_monthly_average_df <- aphids_joined_ev %>%
+  select(collect_date,  incidence_aphids) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_aphids,  month = floor_date(Date, "month")) %>%
+  group_by(month) %>%
+  summarise(aphids_monthly_average_incidence = mean(incidence_aphids)) 
+
+aphids_monthly_average_df <-
+  aphids_monthly_average_df %>% 
+  replace(is.na(aphids_monthly_average_df), mean(aphids_monthly_average_df$aphids_monthly_average_incidence, na.rm = TRUE))
+
+faw_joined_ev %>%
+  select(collect_date,  incidence_faw) %>%
+  ggplot(aes(collect_date, incidence_faw)) +
+  geom_smooth()
+
+
+faw_monthly_average_df <- faw_joined_ev %>%
+  select(collect_date,  incidence_faw) %>%
+  mutate(Date = as.Date(collect_date, format = "%Y-%m-%d")) %>%
+  group_by(incidence_faw,  month = floor_date(Date, "month")) %>%
+  group_by(month) %>%
+  summarise(faw_monthly_average_incidence = mean(incidence_faw)) 
+
+faw_monthly_average_df <-
+  faw_monthly_average_df %>% 
+  replace(is.na(faw_monthly_average_df), mean(faw_monthly_average_df$faw_monthly_average_incidence, na.rm = TRUE))
+
+
+insects_average_df_monthly <-
+  borer_monthly_average_df %>%
+  full_join(semilooper_monthly_average_df) %>%
+  full_join(hopper_monthly_average_df) %>%
+  full_join(earworm_monthly_average_df) %>%
+  full_join(cutworm_monthly_average_df) %>%
+  full_join(armyworm_monthly_average_df) %>%
+  full_join(aphids_monthly_average_df) %>%
+  full_join(faw_monthly_average_df)
+
+
+write.csv(insects_average_df_monthly, "Insect PESTS Monthly Average.csv")
+
+insects_monthly_average_df <- read.csv("Insect PESTS Monthly Average.csv")
+```
+
+
+
+```{r setup, include=FALSE, fig.width = 12, fig.height = 7}
+# average monthly borer incidence plot
+# NA is replaced by monthly average
+color_pests <- c("FAW" = "chocolate2", 
+                  "Earworm"= "deepskyblue2", 
+                "Armyworm" =   "chartreuse3")
+
+pests <- c("Earworm", "Armyworm", "FAW")
+pest_colors <- c(
+            "earworm_monthly_average_incidence" ="deepskyblue2",
+            "armyworm_monthly_average_incidence" = "chartreuse3",
+            "faw_monthly_average_incidence" = "chocolate2"
+            )
+
+line_size <- 2.5
+
+insects_average_df_monthly_aes <-
+  insects_average_df_monthly %>%
+  pivot_longer(cols = !month, values_to = "monthly_incidence", names_to = "pest_incidence")  %>%
+  subset(., pest_incidence %in% c("earworm_monthly_average_incidence", 
+                                  "armyworm_monthly_average_incidence",
+                                  "faw_monthly_average_incidence"))
+
+ggplot(data = insects_average_df_monthly_aes,
+         aes(month, monthly_incidence, color = pest_incidence)) +
+  geom_line(linewidth = line_size) +
+  scale_x_date(date_labels = format("%b-%Y"),
+               date_breaks = "1 month") +
+  scale_color_manual(values = pest_colors, labels = pests) +
+  theme(axis.text.x = element_text(angle = 90, 
+                                   vjust = 0.5, 
+                                   hjust = 0.5,
+                                   size = 14),
+        axis.text.y = element_text(vjust = 0.5, 
+                                   size = 14),
+        axis.title.x = element_text(size = 15, 
+                                    margin = margin(t = 10, r = 20, b = 0, l = 0)),
+        axis.title.y = element_text(size = 15),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15)) +
+  labs(x = "Time Period (May 2020 - Aug 2023)",
+       y = "Average Monthly Pest Percent Incidence",
+       color = "Pests") 
+
+
+
+
+
+
+borer_arima_result <- arima(borer_ts_df$monthly_average_incidence,order=c(1,1,0))
+tsdiag(borer_arima_result)
+
+diff(borer_ts_df$monthly_average_incidence)
+plot(ts(borer_ts_df$monthly_average_incidence))
+```

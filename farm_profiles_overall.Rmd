@@ -1,0 +1,522 @@
+---
+title: "farm_profiles_overall"
+author: "Mihkail Cornell"
+date: "2023-12-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidymodels)
+library(tidyr)
+library(tidyverse)
+library(stringr)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(ggrepel)
+library(forcats)
+library(ggh4x)
+
+
+farm_profiles <- read_csv("farm_profiles.csv")
+fertilizer_averages <- read_csv("Average Fertilizer Application per Fertilizer Treatment for GM and NGM Corn per Hectare.csv")
+# =IF(OR(N16<0.05),  IF(N16 < 0.01, CONCATENATE(M16,"**"), CONCATENATE(M16,"*")), M16)
+```
+
+```Average fertilizer treatment rate per hectare```
+```{r}
+
+
+fertilizer_averages_df <-
+  fertilizer_averages %>%
+    pivot_longer(-c("Province", "Treatment Rate", "Fertilizer"), 
+                 names_to = "Corn Type", values_to = "average_fert_per_hectare") %>%
+  ungroup()
+ 
+
+fertilizer_averages_df %>% 
+  filter(Province == "Samar") %>%
+  ggplot(aes(fct_reorder(Fertilizer, average_fert_per_hectare, .desc = TRUE), 
+             average_fert_per_hectare)) +
+  geom_col(aes(fill = Fertilizer),
+           position = position_dodge(10)) +
+  geom_text(aes(label = average_fert_per_hectare),
+            color = "black",
+            size = 4,
+            nudge_y = 1) +
+  facet_grid(.~ `Corn Type` + `Treatment Rate`,
+             scales = "free_x",
+             switch = "x",
+             labeller = label_wrap_gen(multi_line=FALSE)) +
+  scale_fill_manual(values = c("Complete" = "seagreen",
+                               "MOP" = "pink3",
+                               "Organic" = "khaki3",
+                               "Urea" = "darkcyan")) +
+  labs(y = "Average Fertilizer Bags per Hectare",
+       x = "Corn Types and Treatment Rates",
+       title = "Average Fertilizer Application Rate in Samar",
+       fill = "Fertilizers") +
+  theme(plot.title.position = "panel",
+        plot.title = element_text(margin = margin(b=0.5),
+                                                  hjust = 0.5,
+                                                  vjust = -55,
+                                  size = plot_title_size + 2),
+        aspect.ratio = 1,
+        strip.background = element_blank(),
+        axis.title.x = element_text(margin = margin(t = 2),
+                                    vjust = -1,
+                                    size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        strip.text.x = element_text(vjust = -2),
+        strip.placement = "outside")
+ggsave("../Graphs_for_TERMINAL_Report/Average Fertilizer Application Rate in Samar.png", 
+       dpi = 150, width = 12)
+
+
+
+fertilizer_averages_df %>% 
+  filter(Province == "Leyte") %>%
+  ggplot(aes(fct_reorder(Fertilizer, average_fert_per_hectare, .desc = TRUE), 
+             average_fert_per_hectare)) +
+  geom_col(aes(fill = Fertilizer),
+           position = position_dodge(10)) +
+  geom_text(aes(label = average_fert_per_hectare),
+            color = "black",
+            size = 4,
+            nudge_y = 1) +
+  facet_grid(.~ `Corn Type` + `Treatment Rate`,
+             scales = "free_x",
+             switch = "x",
+             labeller = label_wrap_gen(multi_line=FALSE)) +
+  scale_fill_manual(values = c("Complete" = "seagreen",
+                               "MOP" = "pink3",
+                               "Organic" = "khaki3",
+                               "Urea" = "darkcyan")) +
+  labs(y = "Average Fertilizer Bags per Hectare",
+       x = "Corn Types and Treatment Rates",
+       title = "Average Fertilizer Application Rate in Leyte",
+       fill = "Fertilizers") +
+  theme(plot.title.position = "panel",
+        plot.title = element_text(margin = margin(b=0.5),
+                                                  hjust = 0.5,
+                                                  vjust = -55,
+                                  size = plot_title_size + 2),
+        aspect.ratio = 1,
+        strip.background = element_blank(),
+        axis.title.x = element_text(margin = margin(t = 2),
+                                    vjust = -1,
+                                    size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        strip.text.x = element_text(vjust = -2),
+        strip.placement = "outside")
+ggsave("../Graphs_for_TERMINAL_Report/Average Fertilizer Application Rate in Leyte.png", 
+       dpi = 150, width = 12)
+
+
+fertilizer_averages_df %>% 
+  filter(Province == "Southern Leyte") %>%
+  ggplot(aes(fct_reorder(Fertilizer, average_fert_per_hectare, .desc = TRUE), 
+             average_fert_per_hectare)) +
+  geom_col(aes(fill = Fertilizer),
+           position = position_dodge(10)) +
+  geom_text(aes(label = average_fert_per_hectare),
+            color = "black",
+            size = 4,
+            nudge_y = 1) +
+  facet_grid(.~ `Corn Type` + `Treatment Rate`,
+             scales = "free_x",
+             switch = "x",
+             labeller = label_wrap_gen(multi_line=FALSE)) +
+  scale_fill_manual(values = c("Complete" = "seagreen",
+                               "MOP" = "pink3",
+                               "Organic" = "khaki3",
+                               "Urea" = "darkcyan")) +
+  labs(y = "Average Fertilizer Bags per Hectare",
+       x = "Corn Types and Treatment Rates",
+       title = "Average Fertilizer Application Rate in Southern Leyte",
+       fill = "Fertilizers") +
+  theme(plot.title.position = "panel",
+        plot.title = element_text(margin = margin(b=0.5),
+                                                  hjust = 0.5,
+                                                  vjust = -55,
+                                  size = plot_title_size + 2),
+        aspect.ratio = 1,
+        strip.background = element_blank(),
+        axis.title.x = element_text(margin = margin(t = 2),
+                                    vjust = -1,
+                                    size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        strip.text.x = element_text(vjust = -2),
+        strip.placement = "outside")
+ggsave("../Graphs_for_TERMINAL_Report/Average Fertilizer Application Rate in Southern Leyte.png", 
+       dpi = 150, width = 12)
+
+```
+
+
+```{r setup, include=FALSE}
+farm_variety_edit <-
+  farm_profiles %>%
+  mutate(variety_edited = case_when(str_detect(Variety, "^[OPV]+([_ ])+([WC]+|[WwHhIiTtEe]+)$") ~ "OPV White",
+                             str_detect(Variety, "^[OPV]+([ _]*)+[YyEeLlOoWw]+") ~ "OPV Yellow",
+                             str_detect(Variety, "^(M[ACHOacho]+)[_ ]*(F1)+") ~ "Macho F1",
+                             str_detect(Variety, "^(S+[WwEeEeTt])(\\s)*([CcOoRrNn]+)") ~ "Sweet Corn Hybrid",
+                             str_detect(Variety, "M[aALlAaGgKkIiTt]") ~ "Malagkit",
+                             str_detect(Variety, "\\b(Y+[EeLlLlOoWw_* COoRrNn]+)+") ~ "Yellow Corn Hybrid",
+                             str_detect(Variety, "(FILIPINA_703)+|(Filipina 703)+") ~ "Filipina 703-HY",
+                             str_detect(Variety, "^([Cn])+") ~ "Cn 224-OPV White",
+                             str_detect(Variety, "^\\(HYBRID YELLOW CORN\\)|^[Yellow Corn Hybrid]$") ~ "Hybrid Yellow Corn",
+                             str_detect(Variety, "^([Mem]+[ei]s+)+") ~ "Memphis Native White Corn",
+                             str_detect(Variety, "^((FILIPINA_802)+|(Fi[l+ĺ]+[iu]+(pi)+[n ]+a+(\\s|-))*802)+") ~ "Filipina 802-Hybrid White",
+                             str_detect(Variety, "[NK]+[ ]*[6410]+") ~ "NK6410 BT/GT Hybrid",
+                             str_detect(Variety, "B[Rr][Ii]+[GgHhTt]") ~ "Bright Jane",
+                             str_detect(Variety, "^J") ~ "J505",
+                             str_detect(Variety, "^(Native) ([Ww]hite)$") ~ "Native White",
+                             str_detect(Variety, "^(P+|[Pioneer]+)") ~ "Pioneer 266",
+                             str_detect(Variety, "^(NSIC GM)") ~ "NSIC GM CN38",
+                             str_detect(Variety, "^[Super 999]+") ~ "Super 999-HY",
+                             str_detect(Variety, "\\b(Supreme 5150)+") ~ "Supreme 5150-HY",
+                             str_detect(Variety, "B118G") ~ "B118G-Hybrid Yellow",
+                             str_detect(Variety, "T+[INIGinig]+[u]*[IiBb]") ~ "Tiniguib",
+                             str_detect(Variety, "G[LUTINOUSlutinous]") ~ "Glutinous White",
+                             str_detect(Variety, "Bio [Ss]eed") ~ "Bio Seed",
+                             str_detect(Variety, "(BioCorn 108)+") ~ "BioCorn 108-HY",
+         TRUE ~ Variety))
+```
+
+
+```{r}
+# top 5 gm and non-gm
+type_variety_count <-
+  farm_variety_edit %>%
+  select(`Corn Type`, variety_edited) %>%
+  group_by(`Corn Type`) %>%
+  count(variety_edited) %>%
+  arrange(desc(n), .by_group = TRUE) %>%
+  top_n(5) %>%
+  ungroup() %>%
+  mutate(variety_edited = case_when(`Corn Type` == "GM CORN" & variety_edited == "OPV White" ~ "OPV WHITE",
+                                    TRUE ~ variety_edited))
+
+# write.csv(farm_variety_edit %>%
+#   select(`Corn Type`, variety_edited) %>%
+#   group_by(`Corn Type`) %>%
+#   count(variety_edited), "../All corn types and varieties summary.csv")
+
+type_variety_count %>%
+  mutate(factor(`Corn Type`, levels = c("GM CORN", "Non - GM Corn"))) %>%
+  ggplot(aes(x = fct_reorder(variety_edited, n, .desc = TRUE), 
+             n, 
+             group = `Corn Type`, 
+             fill = `Corn Type`)) +
+  geom_col(position = position_identity(),
+           width = 0.9) +
+  facet_grid(~ `Corn Type`, 
+             scales = "free_x", 
+             # space = "free_x",
+             switch = "x") +
+  geom_text(aes(label = n), 
+            color = "black", 
+            size = 4,
+            nudge_y = -2) +
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+  scale_fill_manual(values = c("GM CORN" = "indianred1",
+                               "Non - GM Corn" = "yellowgreen")) +
+  scale_y_continuous(limits = c(0, 60),
+                     breaks = c(seq(0, 60, by = 5))) +
+  labs(title = "Top 5 Corn Varieties Planted",
+       y = "Sites",
+       x = NULL) +
+  theme(
+    plot.title.position = "panel",
+    plot.title = element_text(margin = margin(b=12),
+                                              hjust = 0.5,
+                                              vjust = -70,
+                              size = plot_title_size + 2),
+    plot.margin = margin(t = -10, l = 10, b = 30),
+    aspect.ratio = 1,
+    strip.background = element_blank(),
+    strip.placement = "outside",
+    axis.text = element_text(size = 10,
+                             color = "black",
+                             face = "plain",
+                             vjust = -0.75,
+                             margin = margin(b = 10)), 
+    axis.title = element_text(size = 18),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 16),
+    strip.text.x =  element_text(size = 16),
+    axis.ticks.length.x = unit(.5, "cm")
+  )
+ggsave("../Graphs_for_TERMINAL_Report/Top 5 Corn Varieties Planted.png", dpi = 135, width = 9)
+  
+  
+  
+  
+  
+# farm_profile_for_map <- read_csv("../farm_profile_for_map.csv") %>% na.omit()
+# write.csv(farm_profile_for_map, "../farm_profile_googlemap.csv")
+# 
+# 
+# farm_profile_for_map %>%
+#   select(Province, Municipality, Barangay) %>%
+#   group_by(Province, Municipality) %>%
+#   count()
+```
+
+
+```Farm profile  summary```
+
+```{r}
+farm_profile <-
+  farm_profiles %>%
+  mutate(collection_date = mdy(`Collection Date`))
+
+leyte_farm <- 
+  farm_profile %>%
+  filter(Province == "Leyte") %>%
+  mutate(Farmer = paste(`Farmer First name`, `Farmer Last name`)) %>%
+  select(Province, Municipality, Barangay, Farmer, `GPS Long`, `GPS Lat`)
+
+so_leyte_farm <- 
+  farm_profile %>%
+  filter(Province == "Southern Leyte") %>%
+  mutate(Farmer = paste(`Farmer First name`, `Farmer Last name`)) %>%
+  select(Province, Municipality, Barangay, Farmer, `GPS Long`, `GPS Lat`)
+
+samar_farm <- 
+  farm_profile %>%
+  filter(Province == "Samar") %>%
+  mutate(Farmer = paste(`Farmer First name`, `Farmer Last name`)) %>%
+  select(Province, Municipality, Barangay, Farmer, `GPS Long`, `GPS Lat`)
+
+
+# write.csv(farm_profile %>%
+#   select(`Data Collector`, Province, Municipality, Barangay,
+#          `GPS Long`, `GPS Lat`) %>%
+#   ungroup() %>%
+#   group_by(`Data Collector`, Province, Municipality), "Collector and Geo Tag.csv")
+```
+
+```Farmer's Gender```
+```{r}
+# Land Tenure
+farmer_gender_count <-
+  farm_profile %>%
+  group_by(`Farmer Gender`) %>%
+  mutate(farmer_gender = `Farmer Gender`) %>%
+  count(farmer_gender)
+
+farmer_gender_count %>%
+  arrange(desc(n)) %>%
+  mutate(prop = n / (sum(farmer_gender_count$n) * 50)) %>%
+  mutate(ypos = cumsum(prop) - 1.05 * prop) %>%
+  ggplot(aes(x = "", y = n, fill = reorder(farmer_gender, n))) + 
+  geom_bar(stat="identity", width = 0.5) +
+  coord_polar("y") + 
+  theme_void() +
+  geom_text(aes(x = 1.1, y = n * 0.6 + c(0, cumsum(n)[-length(n * 5)]), 
+                label = n), color = "black", size = 5) +
+  geom_text(aes(y = n * 0.62 + c(0, cumsum(n)[-length(n)]), 
+                label = sprintf("(%s)", percent(n/sum(farmer_gender_count$n)))), 
+            color = "black", size = 4) +
+  labs(title = "Gender of Corn Farmers",
+       fill = "Genders") + 
+  scale_fill_manual(values = c("Male" = "dodgerblue2", "Female" = "plum1")) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+ggsave("Farmer Gender.png")
+
+```
+
+```Land tenure```
+```{r}
+# Land Tenure
+land_tenure_count <-
+  farm_profile %>%
+  group_by(`Land Tenure`) %>%
+  mutate(land_tenure = `Land Tenure`) %>%
+  count(land_tenure)
+
+land_tenure_count %>%
+  arrange(desc(n)) %>%
+  mutate(prop = n / (sum(land_tenure_count$n) * 50)) %>%
+  mutate(ypos = cumsum(prop) - 1.05 * prop) %>%
+  ggplot(aes(x = "", y = n, fill = reorder(land_tenure, n))) + 
+  geom_bar(stat="identity", width = 0.5) +
+  coord_polar("y") + 
+  theme_void() +
+  # theme(legend.position="none") +
+  geom_text(aes(x = 1.1, y = n * 0.55 + c(0, cumsum(n)[-length(n * 5)]), 
+                label = n), color = "black", size = 5) +
+  geom_text(aes(y = n * 0.65 + c(0, cumsum(n)[-length(n)]), 
+                label = sprintf("(%s)", percent(n/sum(land_tenure_count$n)))), 
+            color = "black", size = 4) +
+  labs(title = "Types of Ownership of Land",
+       fill = "Types of Ownership") + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+ggsave("Types of Ownership of Land.png")
+
+```
+
+```Topography```
+```{r}
+# Topography
+topography_count <-
+  farm_profile %>%
+  group_by(Topography) %>%
+  mutate(topography = Topography) %>%
+  count(topography)
+
+topography_count %>%
+  arrange(desc(n)) %>%
+  mutate(prop = n / (sum(topography_count$n) * 50)) %>%
+  mutate(ypos = cumsum(prop) - 1.05 * prop) %>%
+  ggplot(aes(x = "", y = n, fill = reorder(topography, n))) + 
+  geom_bar(stat="identity", width = 0.5) +
+  coord_polar("y") + 
+  theme_void() +
+  # theme(legend.position="none") +
+  geom_text(aes(x = 1.09, y = n * 0.55 + c(0, cumsum(n)[-length(n * 5)]), 
+                label = n), color = "black", size = 5) +
+  geom_text(aes(y = n * 0.4 + c(0, cumsum(n)[-length(n)]), 
+                label = sprintf("(%s)", percent(n/sum(topography_count$n)))), 
+            color = "black", size = 4) +
+  labs(title = "Topography Distribution",
+       fill = "Types of Topography") + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+ggsave("Types of Topography.png")
+
+```
+
+```{r}
+# Soil Texture
+soil_texture_count <-
+  farm_profile %>%
+  group_by(`Soil Texture`) %>%
+  mutate(soil_texture = `Soil Texture`) %>%
+  count(soil_texture)
+
+soil_texture_count %>%
+  arrange(desc(n)) %>%
+  mutate(prop = n / (sum(soil_texture_count$n) * 50)) %>%
+  mutate(ypos = cumsum(prop) - 1.05 * prop) %>%
+  ggplot(aes(x = "", y = n, fill = reorder(`Soil Texture`, n))) + 
+  geom_bar(stat="identity", width = 0.5) +
+  coord_polar("y") + 
+  theme_void() +
+  geom_label_repel(aes(y = n * 0.65 + c(0, cumsum(n)[-length(n)]), 
+                label = sprintf("%s (%s)", n, percent(n/sum(soil_texture_count$n)))), 
+                color = "black", size = 4, nudge_x = 0.35, show.legend = FALSE) +
+  labs(title = "Soil Texture",
+       fill = "Types of Soil Texture") + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+ggsave("Types of Soil Texture.png")
+```
+
+```{r}
+# Previous Crop
+```
+
+```{r}
+# Adjacent Crop
+```
+
+```{r}
+# Cropping Pattern
+```
+
+```{r}
+# Source of Planting Materials
+material_sources_count <-
+  farm_profile %>%
+  mutate(material_sources = `Source of Planting Materials`) %>%
+  count(material_sources)
+
+material_sources_count %>% 
+  mutate(supplier = case_when(str_detect(material_sources, "([Aa]grivet)") ~ "Agrivet",
+                              str_detect(material_sources, "(Agroman)") ~ "Agroman",
+                              str_detect(material_sources, "(BCCI)") ~ "BCCI",
+                              str_detect(material_sources, "LGU([-, ])*[A-Za-z]* | PAGSO | \\bLGU\\b") ~ "LGU",
+                              str_detect(material_sources, "(DA)") ~ "DA",
+                              str_detect(material_sources, "[Nn]eighbo[u]r") ~ "Neighbor",
+                              str_detect(material_sources, "Owne[rd]") ~ "Owned",
+         TRUE ~ material_sources))
+```
+
+```{r}
+# Crop Stage
+```
+
+```{r}
+# Planting Distance
+```
+
+```Fertilizer Application Level```
+```{r}
+# Fertilizer Application Level
+fertilizer_level_count <-
+  farm_profile %>%
+  group_by(`Fertilizer Application Level`) %>%
+  mutate(fertilizer_level = `Fertilizer Application Level`) %>%
+  count(fertilizer_level)
+
+
+fertilizer_level_count %>%
+  arrange(desc(n)) %>%
+  mutate(prop = n / (sum(fertilizer_level_count$n) * 50)) %>%
+  mutate(ypos = cumsum(prop) - 1.05 * prop) %>%
+  ggplot(aes(x = "", y = n, fill = reorder(`Fertilizer Application Level`, n))) + 
+  geom_bar(stat="identity", width = 0.5) +
+  coord_polar(theta = "y") + 
+  theme_void() +
+  geom_text(aes(y = n * 0.5 + c(0, cumsum(n)[-length(n)]), 
+                label = sprintf("%s (%s)", n, percent(n/sum(fertilizer_level_count$n)))), 
+            color = "black", size = 4.8) +
+  labs(title = "Fertilizer Application Level",
+       fill = "Types of Fertilizer Application Level") + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+ggsave("Types of Fertilizer Application Level.png")
+```
+
+``` Corn Type ```
+```{r}
+corntype_count <-
+  farm_profile %>%
+  group_by(`Corn Type`) %>%
+  mutate(corn_type = `Corn Type`) %>%
+  count(corn_type)
+
+
+corntype_count %>%
+  arrange(desc(n)) %>%
+  mutate(prop = n / (sum(corntype_count$n) * 50)) %>%
+  mutate(ypos = cumsum(prop) - 1.05 * prop) %>%
+  ggplot(aes(x = "", y = n, fill = reorder(`Corn Type`, n))) + 
+  geom_bar(stat="identity", width = 0.5) +
+  coord_polar(theta = "y") + 
+  theme_void() +
+  geom_text(aes(y = n * 0.5 + c(0, cumsum(n)[-length(n)]), 
+                label = sprintf("%s (%s)", n, percent(n/sum(corntype_count$n)))), 
+            color = "black", size = 4.8) +
+  scale_fill_manual(values = c("GM CORN" = "indianred1",
+                               "Non - GM Corn" = "yellowgreen")) +
+  labs(title = "Corn Types",
+       fill = "Corn Types Planted") + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+ggsave("Corn Types.png", height = 5)
+```
+
+

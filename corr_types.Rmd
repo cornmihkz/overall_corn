@@ -1,0 +1,321 @@
+---
+title: "corr_types"
+author: "Mihkail Cornell"
+date: "2023-08-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#install.packages("MASS")
+library(MASS)
+#install.packages("ggplot2")
+library(ggplot2)
+#install.packages("rococo")
+library(rococo)
+#install.packages("psych")
+library(psych)
+#install.packages("lpSolve")
+library(lpSolve)
+#install.packages("irr")
+library(irr)
+#install.packages("mvtnorm")
+library(mvtnorm)
+```
+
+```{r}
+
+#Step 1 - set the parameters of our dataset and data
+
+# Desired Correlation
+d.cor <- 0.7
+# Desired mean of X
+d.mx <- 80
+# Desired range of X
+d.rangex <- 20
+# Desired mean of Y
+d.my <- 90
+# Desired range of Y
+d.rangey <- 20
+
+##Step2
+# Calculations to create multiplication and addition factors for mean and range of X and Y
+mx.factor <- d.rangex/6
+addx.factor <- d.mx - (mx.factor*3)
+my.factor <- d.rangey/6
+addy.factor <- d.my - (my.factor*3)
+
+# Generate data - for this example, let's think of this as 60 students (rows).  Let's say they all took a test at the beginning
+#of the semester, and then again at the end of the semester.  That will give us 2 columns of data, which is 2 scores per student,
+#with a pearson correlation of .80.  Note that you can adjust the parameters as you like with the code in Steps 1 and 2.  For now,
+#we will be making each test score roughly normally distributed.
+
+out <- as.data.frame(mvrnorm(400, mu = c(0,0), 
+                             Sigma = matrix(c(1,d.cor,d.cor,1), ncol = 2), 
+                             empirical = TRUE))
+
+# Adjust so that values are positive and include factors to match desired means and ranges
+#(we don't want negative vales on a test score)
+#and also rename them to Test.1, and Test. 2  We will leave "V1" $ "V2" in the dataset in case we 
+#want to alter the range of the data and the correlation later.
+
+out$"Test.1" <- (out$V1 - min(out$V1))*mx.factor + addx.factor
+out$"Test.2" <- (out$V2 - min(out$V2))*my.factor + addy.factor
+
+##It may also be helpful to give each student an ID number in case we want to look at specific student data later on
+
+#To do this, we need to create a variable, n, that will always adapt to the number of subjects you have to give them a subject number
+#in case you want to alter the number of subjects in your simulated data set
+
+n<-length(out$"Test.1")
+
+#now we need to create a subject id column 
+Sub.Id<-c(1:n)
+
+##and then put it as a new column in our data frame using the "cbind" function
+Class.Data<-cbind(ID=Sub.Id,out)
+
+#and then check our work
+View(Class.Data)
+
+#We can also look at our histograms to make sure the data within our individual tests is normally distributed
+
+hist(out$"Test.1")
+
+```
+```{r}
+hist(out$"Test.2")
+```
+
+```{r}
+# Create liniear model to calculate intercept and slope
+fit <- lm(out$Test.2 ~ out$Test.1, data=out)
+coef(fit)
+```
+```{r}
+# Plot scatterplot along with regression line
+ggplot(out, aes(x=Test.1, y=Test.2)) + geom_point() + coord_fixed() + geom_smooth(method='lm')
+```
+```{r}
+# Produce summary table
+summary(out)
+```
+
+```4 Comparing Correlations
+Now we want to check our three different pairwise comparisons and compare their values.```
+
+```{r}
+cor(Class.Data$Test.1,out$Test.2,
+    method = c("pearson"))
+
+
+cor(Class.Data$Test.1,out$Test.2,
+  method = c("spearman"))
+
+cor(Class.Data$Test.1,out$Test.2,
+    method = c("kendall"))
+```
+```{r}
+##Create a rank for test one.  See more about the "rank" function below:
+#?rank
+Test.1.Rank <-rank(Class.Data$Test.1, na.last=NA,ties.method="first")
+
+## And make a new data set with the rank test based on test 1 score
+Class.Rank.1<-cbind(Test.1.Rank=Test.1.Rank,Class.Data)
+
+#and now check our work
+View(Class.Rank.1)
+```
+
+```{r}
+cor(Class.Rank.1$Test.1.Rank,Class.Rank.1$Test.2,
+    method=c("pearson"))
+
+cor(Class.Rank.1$Test.1.Rank,Class.Rank.1$Test.2,
+    method=c("spearman"))
+
+cor(Class.Rank.1$Test.1.Rank,Class.Rank.1$Test.2,
+    method=c("kendall"))
+```
+```{r}
+Test.2.Rank <-rank(Class.Rank.1$Test.2, na.last=NA,ties.method="first")
+
+Class.Rank.2<-cbind(Test.2.Rank=Test.2.Rank,Class.Rank.1)
+
+cor(Class.Rank.2$Test.1.Rank,Class.Rank.2$Test.2.Rank,
+    method=c("pearson"))
+```
+
+```{r}
+cor(Class.Rank.2$Test.1.Rank,Class.Rank.2$Test.2.Rank,
+    method=c("spearman"))
+```
+```{r}
+cor(Class.Rank.2$Test.1.Rank,Class.Rank.2$Test.2.Rank,
+    method=c("kendall"))
+```
+```{r}
+##Create the new varible with a normal distribution.
+#Look more at the runif function here
+#?runif
+
+#so lets make a new test 1 that has a uniform distribution with a range from 50-100 using the "runif" function 
+
+Math.Avg<-runif(400,min=50,max=100)
+
+##Let's check the shape of the distribution and notice it's not normal
+hist(Math.Avg) 
+```
+```{r}
+#and now put the new uniforn test into the data set 
+Class.Uni<-cbind(Math.Avg=Math.Avg,Class.Rank.2)
+
+#and check our work
+View(Class.Uni)
+```
+
+
+```{r}
+##now let's do some correlations between the new uniform test scores and the original test 2 scores 
+cor(Class.Uni$Math.Avg,Class.Uni$Test.2,
+    method=c("spearman"))
+```
+
+```{r}
+cor(Class.Uni$Math.Avg,Class.Uni$Test.2,
+    method=c("pearson"))
+```
+
+```{r}
+cor(Class.Uni$Math.Avg,Class.Uni$Test.2,
+    method=c("kendall"))
+```
+
+```{r}
+##rank order tests based on test 1 score
+Math.Uni.Rank <-rank(Class.Uni$Math.Avg, na.last=NA,ties.method="first")
+
+
+##add the rank order tests to the data frame
+Class.Uni.Rank<-cbind(Math.Rank=Math.Uni.Rank,Class.Uni)
+
+#and check our work
+View(Class.Uni.Rank)
+
+#now lets correlate those ranks with test 2
+cor(Class.Uni.Rank$Math.Rank,Class.Uni.Rank$Test.2,
+    method=c("spearman"))
+```
+```{r}
+cor(Class.Uni.Rank$Math.Rank,Class.Uni.Rank$Test.2,
+    method=c("pearson"))
+```
+```{r}
+cor(Class.Uni.Rank$Math.Rank,Class.Uni.Rank$Test.2,
+    method=c("kendall"))
+```
+```{r}
+#create the rounded values from the original math scores
+Math.Avg.R <-round(Class.Uni$Math.Avg,digits = 0)
+#bind those to a new dataset
+Class.Math.Round<-cbind(Math.Round=Math.Avg.R,Class.Uni)
+#this viewing is optional
+#View(Class.Math.Round)
+
+#now rank the roudned values
+Math.Rank.Round <-rank(Math.Avg.R, na.last=NA,ties.method="first")
+#and bind them to a new dataset
+Class.Math.RoundRank<-cbind(Math.RoundRank=Math.Rank.Round,Class.Math.Round)
+
+#and now view
+View(Class.Math.RoundRank)
+```
+
+```{r}
+cor(Class.Math.RoundRank$Math.RoundRank,Class.Uni.Rank$Test.2,
+    method=c("spearman"))
+```
+```{r}
+cor(Class.Math.RoundRank$Math.RoundRank,Class.Uni.Rank$Test.2,
+    method=c("pearson"))
+```
+```{r}
+cor(Class.Math.RoundRank$Math.RoundRank,Class.Uni.Rank$Test.2,
+    method=c("kendall"))
+```
+
+```{r}
+#create the rounded values from the original math scores
+Math.Avg.RA <-round(Class.Uni$Math.Avg,digits = 0)
+#bind those to a new dataset
+Class.Math.RoundA<-cbind(Math.Round=Math.Avg.RA,Class.Uni)
+#this viewing is optional
+#View(Class.Math.Round)
+
+#now rank the roudned values
+Math.Rank.RoundA <-rank(Math.Avg.RA, na.last=NA,ties.method="average")
+#and bind them to a new dataset
+Class.Math.RoundRankA<-cbind(Math.RoundRankA=Math.Rank.RoundA,Class.Math.RoundA)
+
+#and now view
+View(Class.Math.RoundRankA)
+
+cor(Class.Math.RoundRankA$Math.RoundRankA,Class.Uni.Rank$Test.2,
+    method=c("spearman"))
+```
+```{r}
+cor(Class.Math.RoundRankA$Math.RoundRankA,Class.Uni.Rank$Test.2,
+    method=c("pearson"))
+```
+
+```{r}
+cor(Class.Math.RoundRankA$Math.RoundRankA,Class.Uni.Rank$Test.2,
+    method=c("kendall"))
+```
+```5 Conclusion
+Given what we see above, there are a number of things to be aware of before going with the commonly used pearson correlations. Beyond the assumptions, it’s important to know if you are looking for relationship or dependence between variables. It’s also important to be aware what may happen to your correlations if you transform your data into ranked scores (though that was not a huge factor here), or how two different distributions of data from different (in this case subject areas) can impact what statistic your use. There are a number of different threads across forums discussing the differences between these statistics (e.g. https://stats.stackexchange.com/questions/3943/kendall-tau-or-spearmans-rho) if you have more specific questions regarding how to use these statistics with your data.
+
+It takes diligence to use the right correlation!
+
+
+
+
+```{r}
+library(MASS)
+
+smoke <- as.numeric(factor(survey$Smoke, levels=c("Never","Occas","Regul","Heavy"))) 
+exer <- as.numeric(factor(survey$Exer, levels=c("None","Some","Freq"))) 
+
+
+m <- cbind(exer, smoke)
+cor(m, method="kendall", use="pairwise")
+
+cor.test(exer, smoke, method="kendall") 
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
